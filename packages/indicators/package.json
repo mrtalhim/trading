@@ -1,5 +1,5 @@
 {
-  "name": "@trading/core",
+  "name": "@trading/indicators",
   "type": "module",
   "version": "0.0.0",
   "private": true,
@@ -12,7 +12,7 @@
     }
   },
   "dependencies": {
-    "zod": "^3.23.0"
+    "@trading/core": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b"

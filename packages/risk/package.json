@@ -1,5 +1,5 @@
 {
-  "name": "@trading/core",
+  "name": "@trading/risk",
   "type": "module",
   "version": "0.0.0",
   "private": true,
@@ -12,7 +12,8 @@
     }
   },
   "dependencies": {
-    "zod": "^3.23.0"
+    "@trading/core": "workspace:*",
+    "@trading/indicators": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b"
