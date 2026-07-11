@@ -1,0 +1,23 @@
+{
+  "name": "@trading/features",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@trading/core": "workspace:*",
+    "@trading/datasets": "workspace:*",
+    "@trading/indicators": "workspace:*",
+    "zod": "^3.23.0"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

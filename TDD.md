@@ -77,6 +77,22 @@ This is the law. A feature is done when its acceptance criteria pass as tests �
 - ✓ Deterministic: same input candles always produce the same output
 - ✓ Feature-pipeline version is hashed and included in output metadata
 
+## Feature pipeline (`packages/features`)
+
+Consumes a `Dataset` and produces an enriched candle stream (one `FeatureRow` per candle). Indicators are applied per-window over the prefix ending at each candle.
+
+- ✓ Yields one `FeatureRow` per source candle, in order, with `row.candle` equal to the source candle
+- ✓ Final-row indicator features equal the single-call indicator value computed over the full candle array (RSI/ATR/EMA/SMA/ADX/VWAP)
+- ✓ Warmup rows: features needing more history than available are `NaN` and listed in `row.insufficient`; the pipeline never throws
+- ✓ Determinism: two runs on the same `Dataset` produce identical feature values and identical `pipelineVersion`
+- ✓ `pipelineVersion` is a 16-char hex string, deterministic for identical specs, and changes when any spec (name/indicator/params) changes
+- ✓ `pipelineVersion` incorporates the underlying indicator `pipelineVersion` (recomputed from indicator result metadata), so a change to an indicator implementation changes the feature version
+- ✓ Metadata propagation: `FeatureMetadata.source` deep-equals the source `DatasetMetadata` (exchange, pair, interval, checksum preserved)
+- ✓ Writing to disk (`writeFeatureDataset`) produces `candles.jsonl` + `features.jsonl` + `metadata.json`; reading back reproduces identical rows and metadata (`NaN` round-trips via `null`)
+- ✓ Two writes of the same pipeline are byte-identical for `candles.jsonl`, `features.jsonl`, and `metadata.json`
+- ✓ Generic engine supports the M1 indicators (`rsi`, `atr`, `adx`, `ema`, `sma`, `vwap`) plus derived examples (`return`, `logReturn`); `return`/`logReturn` are `NaN` at index 0
+- ✓ Invalid configs are rejected: unknown indicator, duplicate feature name, or empty spec list
+
 ## Validation (`packages/core`)
 
 - ✓ Accepts a well-formed `{action, confidence}` JSON object
