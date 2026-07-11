@@ -51,3 +51,9 @@ Read these before making a change that touches the choices below. If a decision 
 
 **Decision**: Business logic in `packages/*` and `apps/indodax-agent` must be callable independent of OpenClaw specifically.
 **Reason**: Avoids coupling core trading/risk logic to one agent framework's lifecycle or config format; keeps the option open to expose the same logic via a CLI or REST API later.
+
+### ADR-010: Dataset-driven architecture
+
+**Decision**: All data-consuming components (indicators, features, risk, LLM context, backtest, benchmark) receive data through a `Dataset` interface rather than direct file reads or live API calls.
+**Reason**: Decouples the development and testing of every component from any specific data source. Indicators don't know if data came from Binance, a CSV file, or a live websocket. This makes the entire pipeline testable offline against golden datasets, replayable for regression, and benchmarkable across providers without any exchange connection.
+**Alternatives considered**: Direct `Candle[]` injection — rejected because it doesn't support streaming (AsyncIterable) or metadata-rich datasets (ticker, orderbook, trades). CCXT-first data loading — rejected because it couples the data layer to a specific exchange library, defeating the purpose of data-source agnosticism.

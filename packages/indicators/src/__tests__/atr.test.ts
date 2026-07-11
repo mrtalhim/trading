@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
 import { atr } from '../atr.js';
-import type { Candle } from '@trading/core';
+import { loadGoldenDataset } from './helpers.js';
 
-const candles: Candle[] = JSON.parse(readFileSync('tests/fixtures/candles.json', 'utf-8'));
+const candles = loadGoldenDataset('btc_15m');
 
 describe('atr', () => {
-  it('returns correct ATR(14) for the fixture', () => {
+  it('returns correct ATR(14) for the golden dataset', () => {
     const result = atr(candles, 14);
-    expect(result.value).toBeCloseTo(716.21, 1);
+    expect(result.value).toBeCloseTo(561.47, 1);
   });
 
   it('returns NaN with insufficient data (needs period + 1)', () => {
@@ -25,6 +24,6 @@ describe('atr', () => {
   it('includes metadata', () => {
     const result = atr(candles, 14);
     expect(result.metadata.pipelineVersion).toBeDefined();
-    expect(result.metadata.candlesConsumed).toBe(30);
+    expect(result.metadata.candlesConsumed).toBe(100);
   });
 });

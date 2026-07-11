@@ -19,15 +19,21 @@ A layered, provider-agnostic decision-making platform. The Indodax crypto tradin
 - **Replaceable through interfaces, not rewrites.** Any exchange, provider, or notification channel should be swappable via config.
 - **Simplicity over cleverness.** JSONL before a database. Pure functions before classes. Don't build for scale you don't have yet.
 - **Correctness over speed.** Guardrails, risk math, and validation are built and fully tested before the LLM layer is wired in at all.
+- **Dataset-first development.** Every component is developed and tested against reproducible golden datasets, never against live APIs. This makes the entire pipeline testable offline, replayable for regression, and benchmarkable across providers.
 
 ## Architecture (layers)
 
 ```
 Application     → apps/indodax-agent, apps/backtest, apps/benchmark, apps/cli
+Dataset         → packages/datasets (Dataset interface, loaders, validator, replay)
 Strategy        → packages/risk (sizing/stop/TP strategies — LLM-direction is just one input)
 Plugins         → packages/llm, packages/exchanges, packages/notifications, packages/storage
 Core            → packages/core (Decision, State Machine, Interfaces, Schemas) — zero deps
 ```
+
+Data flows through the `Dataset` interface. Everything below the application layer consumes `Dataset` rather than direct file reads or live API calls. This means indicators, features, risk, LLM context, backtest, and benchmark all work against the same reproducible data source.
+
+Golden datasets live in `datasets/golden/` and are checked into the repo. They're the source of truth for regression testing. Realistic datasets (downloaded from Binance) live in `datasets/realistic/` and are used for more comprehensive validation.
 
 OpenClaw (or any other runtime) is a frontend on top of this platform, not the platform itself. The business logic must be callable from a CLI, REST endpoint, or different runtime without modification.
 

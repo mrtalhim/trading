@@ -1,0 +1,17 @@
+{
+  "exchange": "synthetic",
+  "pair": "SOLUSDT",
+  "interval": "15m",
+  "timezone": "UTC",
+  "source": "hand-crafted",
+  "start": 1700000000000,
+  "end": 1700089100000,
+  "candleCount": 100,
+  "checksum": "8891b5f3bdd6d689",
+  "includes": {
+    "candles": true,
+    "ticker": false,
+    "orderbook": false,
+    "trades": false
+  }
+}

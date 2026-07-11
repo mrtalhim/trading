@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
 import { ema } from '../ema.js';
-import type { Candle } from '@trading/core';
+import { loadGoldenDataset } from './helpers.js';
 
-const candles: Candle[] = JSON.parse(readFileSync('tests/fixtures/candles.json', 'utf-8'));
+const candles = loadGoldenDataset('btc_15m');
 
 describe('ema', () => {
-  it('returns correct EMA(20) for the fixture', () => {
+  it('returns correct EMA(20) for the golden dataset', () => {
     const result = ema(candles, 20);
-    expect(result.value).toBeCloseTo(51726.82, 1);
+    expect(result.value).toBeCloseTo(48178.78, 1);
   });
 
   it('returns NaN when insufficient data', () => {
@@ -25,6 +24,6 @@ describe('ema', () => {
   it('includes metadata', () => {
     const result = ema(candles, 20);
     expect(result.metadata.pipelineVersion).toBeDefined();
-    expect(result.metadata.candlesConsumed).toBe(30);
+    expect(result.metadata.candlesConsumed).toBe(100);
   });
 });

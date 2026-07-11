@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
 import { sma } from '../sma.js';
-import type { Candle } from '@trading/core';
+import { loadGoldenDataset } from './helpers.js';
 
-const candles: Candle[] = JSON.parse(readFileSync('tests/fixtures/candles.json', 'utf-8'));
+const candles = loadGoldenDataset('btc_15m');
 
 describe('sma', () => {
-  it('returns correct SMA(20) for the fixture', () => {
+  it('returns correct SMA(20) for the golden dataset', () => {
     const result = sma(candles, 20);
-    expect(result.value).toBeCloseTo(51365, 1);
+    expect(result.value).toBeCloseTo(48088.06, 1);
   });
 
   it('returns NaN when insufficient data', () => {
@@ -26,6 +25,6 @@ describe('sma', () => {
     const result = sma(candles, 20);
     expect(result.metadata.pipelineVersion).toBeDefined();
     expect(result.metadata.pipelineVersion.length).toBe(16);
-    expect(result.metadata.candlesConsumed).toBe(30);
+    expect(result.metadata.candlesConsumed).toBe(100);
   });
 });

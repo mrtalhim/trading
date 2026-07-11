@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
 import { vwap } from '../vwap.js';
-import type { Candle } from '@trading/core';
+import { loadGoldenDataset } from './helpers.js';
 
-const candles: Candle[] = JSON.parse(readFileSync('tests/fixtures/candles.json', 'utf-8'));
+const candles = loadGoldenDataset('btc_15m');
 
 describe('vwap', () => {
-  it('returns correct VWAP for the fixture', () => {
+  it('returns correct VWAP for the golden dataset', () => {
     const result = vwap(candles);
-    expect(result.value).toBeCloseTo(51283.02, 1);
+    expect(result.value).toBeCloseTo(45695.75, 1);
   });
 
   it('returns NaN with zero candles', () => {
@@ -25,6 +24,6 @@ describe('vwap', () => {
   it('includes metadata', () => {
     const result = vwap(candles);
     expect(result.metadata.pipelineVersion).toBeDefined();
-    expect(result.metadata.candlesConsumed).toBe(30);
+    expect(result.metadata.candlesConsumed).toBe(100);
   });
 });

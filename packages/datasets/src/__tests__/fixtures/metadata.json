@@ -1,0 +1,17 @@
+{
+  "exchange": "synthetic",
+  "pair": "BTCUSDT",
+  "interval": "15m",
+  "timezone": "UTC",
+  "source": "test-fixture",
+  "start": 1700000000000,
+  "end": 1700002700000,
+  "candleCount": 5,
+  "checksum": "test-checksum-abc123",
+  "includes": {
+    "candles": true,
+    "ticker": false,
+    "orderbook": false,
+    "trades": false
+  }
+}

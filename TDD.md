@@ -4,6 +4,70 @@ This is the law. A feature is done when its acceptance criteria pass as tests �
 
 ---
 
+## Dataset infrastructure (`packages/datasets`)
+
+**Dataset interface**
+
+- ✓ `Dataset.metadata()` returns correct `DatasetMetadata` for each golden dataset
+- ✓ `Dataset.candles()` yields all candles in order as `AsyncIterable<Candle>`
+- ✓ Metadata is cached across multiple calls
+
+**JSONL loader**
+
+- ✓ Reads `metadata.json` + `candles.jsonl` from a directory
+- ✓ Yields candles in file order
+- ✓ Handles empty files gracefully
+
+**CSV loader**
+
+- ✓ Reads `metadata.json` + `candles.csv` from a directory
+- ✓ Parses header row correctly, casts numeric types
+- ✓ Produces identical candle data as JSONL loader for the same dataset
+
+**Parquet loader**
+
+- ✓ Reads `metadata.json` + `candles.parquet` from a directory
+- ✓ Handles INT64 timestamps (bigint → number conversion)
+- ✓ Produces identical candle data as JSONL loader for the same dataset
+
+**Validator**
+
+- ✓ Passes for valid candles with correct interval spacing
+- ✓ Detects decreasing timestamps
+- ✓ Detects duplicate timestamps
+- ✓ Detects missing candles (gap != expected interval)
+- ✓ Detects OHLCV integrity violations (high < open/close, low > open/close, negative volume)
+- ✓ Returns empty error list for empty candle array
+- ✓ Parses known interval strings (1m, 5m, 15m, 1h, 1d, etc.)
+- ✓ Throws on unknown interval strings
+
+**Checksum**
+
+- ✓ Returns 16-character hex string
+- ✓ Deterministic for same input
+- ✓ Order-independent (sorts by timestamp)
+- ✓ Differs for different data
+
+**ReplayLoader**
+
+- ✓ Yields candles sequentially via `next()`
+- ✓ Returns null when exhausted
+- ✓ `peek()` returns current candle without advancing
+- ✓ `seek(timestamp)` jumps to correct position
+- ✓ `seek()` returns false for timestamp beyond end
+- ✓ `skip(n)` advances position by n
+- ✓ `skip()` does not exceed total
+- ✓ `rewind()` resets position to 0
+- ✓ `total` returns candle count after loading
+- ✓ `all()` returns all candles as array
+
+**Golden datasets**
+
+- ✓ BTC/ETH/SOL synthetic datasets: 100 candles each, validated
+- ✓ Realistic Binance BTC 2024 dataset: 1000 candles, validated
+- ✓ All golden datasets pass validation (timestamps, OHLCV, intervals)
+- ✓ Checksums match computed values
+
 ## Indicators (`packages/indicators`)
 
 **RSI14 / ATR14 / ADX14 / MACD / MA20 / MA50 / VWAP**

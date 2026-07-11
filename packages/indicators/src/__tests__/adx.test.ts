@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
 import { adx } from '../adx.js';
-import type { Candle } from '@trading/core';
+import { loadGoldenDataset } from './helpers.js';
 
-const candles: Candle[] = JSON.parse(readFileSync('tests/fixtures/candles.json', 'utf-8'));
+const candles = loadGoldenDataset('btc_15m');
 
 describe('adx', () => {
-  it('returns correct ADX(14) for the fixture', () => {
+  it('returns correct ADX(14) for the golden dataset', () => {
     const result = adx(candles, 14);
-    expect(result.value).toBeCloseTo(19.95, 1);
+    expect(result.value).toBeCloseTo(38.19, 1);
   });
 
   it('returns NaN with insufficient data (needs 2 * period)', () => {
@@ -25,6 +24,6 @@ describe('adx', () => {
   it('includes metadata', () => {
     const result = adx(candles, 14);
     expect(result.metadata.pipelineVersion).toBeDefined();
-    expect(result.metadata.candlesConsumed).toBe(30);
+    expect(result.metadata.candlesConsumed).toBe(100);
   });
 });

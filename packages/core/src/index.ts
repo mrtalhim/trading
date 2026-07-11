@@ -1,4 +1,10 @@
 export type { Candle } from './candle.js';
+export { TickerSchema } from './ticker.js';
+export type { Ticker } from './ticker.js';
+export { OrderBookSchema } from './orderbook.js';
+export type { OrderBook } from './orderbook.js';
+export { TradeSchema } from './trade.js';
+export type { Trade } from './trade.js';
 export { Action, DecisionSchema } from './decision.js';
 export type { Decision } from './decision.js';
 export { parseDecision } from './validation.js';
