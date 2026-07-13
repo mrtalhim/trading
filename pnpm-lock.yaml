@@ -73,14 +73,17 @@ importers:
         specifier: ^3.23.0
         version: 3.25.76
 
+  packages/guardrails:
+    dependencies:
+      '@trading/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/indicators:
     dependencies:
       '@trading/core':
         specifier: workspace:*
         version: link:../core
-      '@trading/datasets':
-        specifier: workspace:*
-        version: link:../datasets
 
   packages/risk:
     dependencies:

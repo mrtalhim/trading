@@ -39,11 +39,13 @@ Don't start implementing until that's done. Silent assumptions are the main sour
 | `packages/core`          | Decision types, state machine, interfaces, schemas — zero deps                       |
 | `packages/indicators`    | RSI/ATR/EMA/SMA/ADX/VWAP, self-implemented                                           |
 | `packages/risk`          | Deterministic sizing/stop/TP strategies                                              |
+| `packages/guardrails`    | Pure, deterministic guardrail rule set (depends on `core`; consumed by all apps)     |
 | `packages/llm`           | `DecisionEngine` interface + provider adapters                                       |
 | `packages/exchanges`     | `indodax/`, `paper/`                                                                 |
 | `packages/notifications` | Telegram/WhatsApp/Discord                                                            |
 | `packages/storage`       | JSONL now, DuckDB later                                                              |
 | `packages/datasets`      | Record/version/replay for golden datasets                                            |
+| `packages/features`      | Feature pipeline consuming `Dataset` (indicators per-window, versioned)              |
 | `packages/android`       | Termux/proot deployment, device health                                               |
 | `apps/indodax-agent`     | The live/paper trading runtime                                                       |
 | `apps/backtest`          | Record/replay                                                                        |

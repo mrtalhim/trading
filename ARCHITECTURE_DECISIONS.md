@@ -52,6 +52,14 @@ Read these before making a change that touches the choices below. If a decision 
 **Decision**: Business logic in `packages/*` and `apps/indodax-agent` must be callable independent of OpenClaw specifically.
 **Reason**: Avoids coupling core trading/risk logic to one agent framework's lifecycle or config format; keeps the option open to expose the same logic via a CLI or REST API later.
 
+### ADR-011: Guardrails live in `packages/guardrails`, not in an app
+
+**Decision**: The guardrail rule set is implemented as a pure, deterministic module in `packages/guardrails`. It depends only on `@trading/core` (type-only) and consumes risk-engine output (e.g. proposed position size) through its input context. It is **not** placed inside `apps/indodax-agent`.
+
+**Reason**: `apps/backtest` and `apps/benchmark` must reuse the exact same guardrail logic the live agent uses — duplicating that logic across apps is explicitly forbidden (PROJECT_CHARTER: "Never duplicate logic that already exists in a shared module"). If guardrails lived in `apps/indodax-agent`, `apps/backtest` would have to import from another app, which violates the dependency-direction rule in VISION.md (apps depend on packages, never on each other). A pure module in `packages/` matches the shape of `packages/risk` (pure, deterministic, reusable). This corrects the literal module path written in TDD.md; the roadmap description ("a pure, deterministic module") and the architecture principle stand unchanged.
+
+**Alternatives considered**: Guardrails inside `apps/indodax-agent` — rejected because it forces cross-app imports and would duplicate capital-protecting logic across apps.
+
 ### ADR-010: Dataset-driven architecture
 
 **Decision**: All data-consuming components (indicators, features, risk, LLM context, backtest, benchmark) receive data through a `Dataset` interface rather than direct file reads or live API calls.

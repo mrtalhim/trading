@@ -22,7 +22,7 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 **Do not touch**: real exchange, real LLM, Android.
 **Done when**: all TDD.md "Dataset infrastructure" tests pass, golden datasets validated, all three loaders produce identical candle data from the same dataset.
 
-## M3 — Feature Engineering
+## M3 — Feature Engineering ✅
 
 **Build**: Feature pipeline that consumes `Dataset` and produces enriched candle streams. Indicators are applied per-window, not per-call. Feature versioning and metadata propagation.
 **Do not touch**: LLM, exchanges, Android.
@@ -30,7 +30,7 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 
 ## M4 — Validation + Guardrails + Property tests
 
-**Build**: validation layer, full guardrail rule set (as a pure, deterministic module operating on mock inputs), property tests against guardrails.
+**Build**: validation layer (already delivered in `packages/core` — see M1/M2), full guardrail rule set as `packages/guardrails` (a pure, deterministic module operating on mock inputs, reused by `apps/backtest` and `apps/benchmark` per ADR-011), property tests against guardrails.
 **Do not touch**: real exchange, real LLM, Android.
 **Done when**: every guardrail rule in TDD.md has a passing test, and property tests run 100k+ random cases without a single violation.
 

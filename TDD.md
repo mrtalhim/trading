@@ -121,7 +121,7 @@ Consumes a `Dataset` and produces an enriched candle stream (one `FeatureRow` pe
 - ✓ Given win rate + payoff ratio → returns expected fraction
 - ✓ Never returns a fraction that would exceed configured max position
 
-## Guardrails (`apps/indodax-agent`) — one test per rule, deterministic and boring
+## Guardrails (`packages/guardrails`) — one test per rule, deterministic and boring
 
 - ✓ Position at/above max % → reject
 - ✓ Daily loss cap reached → reject all new positions

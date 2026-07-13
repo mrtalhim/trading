@@ -1,5 +1,5 @@
 {
-  "name": "@trading/indicators",
+  "name": "@trading/guardrails",
   "type": "module",
   "version": "0.0.0",
   "private": true,
