@@ -62,6 +62,7 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 
 **Build**: real `packages/exchanges/indodax` implementation (replacing paper for this adapter), retry policy, clock sync, exchange filters, reconciliation (startup + periodic), authenticated control commands, cost/budget caps, daily reset logic, position ownership policy.
 **Do not touch**: Android deployment — build and test this on a dev machine first, paper mode only.
+**Indodax historical candles**: pull real OHLC directly from the public TradingView-compatible endpoint `/tradingview/history_v2?from={ts}&symbol={pair_id}&tf={minutes}&to={ts}` (e.g. `symbol=btc_idr`). Do **not** build a trade-aggregation pipeline from `/api/trades` — candles already exist (ADR-012). Before writing a parser, hit the endpoint with `curl` for a known range and confirm the response shape (field names; whether `tf` is number or string). Validate/checksum the pulled data the same way as the synthetic set.
 **Done when**: a full paper-mode run against real Indodax market data (real prices, simulated fills) survives a 10,000-candle E2E test with no crashes, no NaN, deterministic PnL.
 
 ## M10 — Android / Termux deployment

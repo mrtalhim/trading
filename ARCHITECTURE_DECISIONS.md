@@ -60,6 +60,16 @@ Read these before making a change that touches the choices below. If a decision 
 
 **Alternatives considered**: Guardrails inside `apps/indodax-agent` — rejected because it forces cross-app imports and would duplicate capital-protecting logic across apps.
 
+### ADR-012: Indodax historical candles come from `/tradingview/history_v2`, not trade aggregation
+
+**Decision**: When building the realistic Indodax dataset (M9), fetch historical OHLC directly from Indodax's public, TradingView-compatible endpoint `/tradingview/history_v2?from={timestamp}&symbol={pair_id}&tf={minutes}&to={timestamp}` (e.g. `symbol=btc_idr`, `tf` = timeframe in minutes). Do **not** reconstruct candles from raw `/api/trades`.
+
+**Reason**: The endpoint already returns OHLC for a given pair/timeframe/date range. Rebuilding candles from trade prints (aggregation logic, gap handling in trade data, volume-weighting) is materially more work for the same result. An earlier analysis incorrectly concluded Indodax had no public candlestick endpoint (it only noted `/api/ticker`, `/api/trades`, `/api/depth`); the TradingView history endpoint was missed. This corrects that conclusion.
+
+**Alternatives considered**: Aggregating `/api/trades` into candles — rejected as unnecessary effort given a native candle endpoint exists.
+
+**Operational note**: Before writing a parser around this endpoint, hit it directly with `curl` for a known recent range and confirm the real response shape — field names, and whether `tf` is passed as a number or a string. Verify against live data rather than assuming; a five-minute manual look beats discovering a field-name mismatch three files deep.
+
 ### ADR-010: Dataset-driven architecture
 
 **Decision**: All data-consuming components (indicators, features, risk, LLM context, backtest, benchmark) receive data through a `Dataset` interface rather than direct file reads or live API calls.
