@@ -6,6 +6,7 @@
     { "path": "./packages/indicators" },
     { "path": "./packages/features" },
     { "path": "./packages/guardrails" },
-    { "path": "./packages/risk" }
+    { "path": "./packages/risk" },
+    { "path": "./packages/exchanges" }
   ]
 }

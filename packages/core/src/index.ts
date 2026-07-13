@@ -12,3 +12,19 @@ export type { ValidationResult } from './validation.js';
 export type { IndicatorResult, IIndicator } from './interfaces.js';
 export { AgentState, AgentEvent, DEFAULT_TRANSITIONS } from './state-machine.js';
 export type { TransitionMap } from './state-machine.js';
+export {
+  OrderSideSchema,
+  OrderTypeSchema,
+  OrderStatusSchema,
+  OrderParamsSchema,
+  InternalOrderSchema,
+  InternalBalanceSchema,
+} from './exchange.js';
+export type {
+  OrderSide,
+  OrderType,
+  OrderStatus,
+  OrderParams,
+  InternalOrder,
+  InternalBalance,
+} from './exchange.js';

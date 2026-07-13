@@ -58,6 +58,12 @@ importers:
         specifier: ^0.16.1
         version: 0.16.1
 
+  packages/exchanges:
+    dependencies:
+      '@trading/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/features:
     dependencies:
       '@trading/core':
