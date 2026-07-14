@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
-    "format:check": "prettier --check packages/",
-    "format:write": "prettier --write packages/",
-    "lint": "eslint 'packages/*/src/**/*.ts'",
+    "format:check": "prettier --check packages/ apps/",
+    "format:write": "prettier --write packages/ apps/",
+    "lint": "eslint 'packages/*/src/**/*.ts' 'apps/*/src/**/*.ts'",
     "test": "vitest run",
     "typecheck": "tsc -b",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"

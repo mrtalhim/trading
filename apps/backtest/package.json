@@ -1,0 +1,25 @@
+{
+  "name": "@trading/backtest",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@trading/core": "workspace:*",
+    "@trading/datasets": "workspace:*",
+    "@trading/exchanges": "workspace:*",
+    "@trading/features": "workspace:*",
+    "@trading/guardrails": "workspace:*",
+    "@trading/risk": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

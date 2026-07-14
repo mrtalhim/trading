@@ -40,7 +40,7 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 **Do not touch**: real Indodax credentials, live trading.
 **Done when**: the paper exchange can process a simulated order end-to-end and contract tests pass.
 
-## M6 — Replay engine + Dataset recorder
+## M6 — Replay engine + Dataset recorder ✅
 
 **Build**: `packages/datasets` recorder implementation (Indodax live → canonical dataset), `apps/backtest` in replay-only mode against the paper exchange and a static historical dataset.
 **Do not touch**: any LLM provider yet — use fixed/scripted decisions to prove the replay pipeline works before an LLM is in the loop.
