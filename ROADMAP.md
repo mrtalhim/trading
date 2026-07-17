@@ -28,13 +28,13 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 **Do not touch**: LLM, exchanges, Android.
 **Done when**: feature pipeline produces deterministic output for golden datasets, version metadata propagates correctly.
 
-## M4 — Validation + Guardrails + Property tests
+## M4 — Validation + Guardrails + Property tests ✅
 
 **Build**: validation layer (already delivered in `packages/core` — see M1/M2), full guardrail rule set as `packages/guardrails` (a pure, deterministic module operating on mock inputs, reused by `apps/backtest` and `apps/benchmark` per ADR-011), property tests against guardrails.
 **Do not touch**: real exchange, real LLM, Android.
 **Done when**: every guardrail rule in TDD.md has a passing test, and property tests run 100k+ random cases without a single violation.
 
-## M5 — Exchange abstraction + Paper exchange
+## M5 — Exchange abstraction + Paper exchange ✅
 
 **Build**: `packages/exchanges` interface, a `paper` exchange adapter (simulated fills, no real API calls), exchange contract tests using mocked CCXT responses.
 **Do not touch**: real Indodax credentials, live trading.
@@ -46,7 +46,7 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 **Do not touch**: any LLM provider yet — use fixed/scripted decisions to prove the replay pipeline works before an LLM is in the loop.
 **Done when**: replaying the same dataset twice produces identical output (deterministic).
 
-## M7 — LLM providers
+## M7 — LLM providers ✅
 
 **Build**: `packages/llm` `DecisionEngine` interface, at least two provider adapters (e.g. one free-tier — Gemini or OpenRouter — plus Anthropic), contract tests run against both with the same fixtures, timeout handling.
 **Do not touch**: Indodax live keys, Android, benchmark app.

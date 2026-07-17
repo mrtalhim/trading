@@ -50,6 +50,9 @@ importers:
       '@trading/guardrails':
         specifier: workspace:*
         version: link:../../packages/guardrails
+      '@trading/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
       '@trading/risk':
         specifier: workspace:*
         version: link:../../packages/risk
@@ -107,6 +110,12 @@ importers:
         version: link:../core
 
   packages/indicators:
+    dependencies:
+      '@trading/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/llm:
     dependencies:
       '@trading/core':
         specifier: workspace:*

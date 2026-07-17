@@ -1,10 +1,12 @@
 import { writeFile } from 'node:fs/promises';
 import { BacktestEngine, loadDataset, type BacktestConfig } from './engine.js';
 import { loadDecisions } from './decisions.js';
+import { recordDecisions, writeDecisions } from './record.js';
+import { createDecisionEngine, createEngineFromPreset } from '@trading/llm';
 
 interface CliArgs {
   dataset: string;
-  decisions: string;
+  decisions?: string;
   symbol: string;
   base: string;
   quote: string;
@@ -13,6 +15,15 @@ interface CliArgs {
   fraction: number;
   atrStopMultiplier: number;
   out?: string;
+  record: boolean;
+  preset?: string;
+  provider?: string;
+  model?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  sampleEvery: number;
+  lookback: number;
+  timeout: number;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -31,7 +42,7 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
   if (!args.dataset) throw new Error('--dataset <dir> is required');
-  if (!args.decisions) throw new Error('--decisions <file> is required');
+  if (!args.decisions && !args.record) throw new Error('--decisions <file> or --record is required');
   const symbol = args.symbol ?? 'BTC/USDT';
   const [base, quote] = symbol.split('/');
   if (!base || !quote) throw new Error(`invalid --symbol (expected BASE/QUOTE): ${symbol}`);
@@ -46,13 +57,48 @@ function parseArgs(argv: string[]): CliArgs {
     fraction: Number(args.fraction ?? 0.1),
     atrStopMultiplier: Number(args.atrStopMultiplier ?? 2),
     out: args.out,
+    record: args.record === 'true',
+    preset: args.preset,
+    provider: args.provider,
+    model: args.model,
+    baseUrl: args.baseUrl,
+    apiKey: args.apiKey,
+    sampleEvery: Number(args.sampleEvery ?? 1),
+    lookback: Number(args.lookback ?? 20),
+    timeout: Number(args.timeout ?? 10_000),
   };
 }
 
 export async function runBacktestCli(argv: string[] = process.argv.slice(2)): Promise<void> {
   const a = parseArgs(argv);
   const dataset = loadDataset(a.dataset);
-  const decisions = await loadDecisions(a.decisions);
+
+  if (a.record) {
+    const apiKey = a.apiKey ?? process.env.OPENROUTER_API_KEY ?? '';
+    if (!apiKey) throw new Error('--api-key or OPENROUTER_API_KEY env required for --record');
+
+    const engine = a.preset
+      ? createEngineFromPreset(a.preset, apiKey, a.timeout)
+      : createDecisionEngine({
+          kind: (a.provider ?? 'openai') as 'openai' | 'anthropic',
+          model: a.model ?? 'google/gemma-4-31b-it:free',
+          baseURL: a.baseUrl,
+          apiKey,
+          timeoutMs: a.timeout,
+        });
+    const decisions = await recordDecisions(dataset, engine, {
+      symbol: a.symbol,
+      sampleEvery: a.sampleEvery,
+      lookback: a.lookback,
+    });
+
+    const outPath = a.out ?? a.dataset.replace(/\//g, '-') + '-decisions.jsonl';
+    await writeDecisions(decisions, outPath);
+    process.stdout.write(`recorded ${decisions.length} decisions → ${outPath}\n`);
+    return;
+  }
+
+  const decisions = await loadDecisions(a.decisions!);
 
   const config: BacktestConfig = {
     dataset,

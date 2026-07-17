@@ -17,6 +17,7 @@
     "@trading/exchanges": "workspace:*",
     "@trading/features": "workspace:*",
     "@trading/guardrails": "workspace:*",
+    "@trading/llm": "workspace:*",
     "@trading/risk": "workspace:*"
   },
   "scripts": {

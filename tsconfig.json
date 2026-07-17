@@ -8,6 +8,7 @@
     { "path": "./packages/guardrails" },
     { "path": "./packages/risk" },
     { "path": "./packages/exchanges" },
+    { "path": "./packages/llm" },
     { "path": "./apps/backtest" }
   ]
 }

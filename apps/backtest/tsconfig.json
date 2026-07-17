@@ -11,6 +11,7 @@
     { "path": "../../packages/exchanges" },
     { "path": "../../packages/features" },
     { "path": "../../packages/guardrails" },
+    { "path": "../../packages/llm" },
     { "path": "../../packages/risk" }
   ]
 }
