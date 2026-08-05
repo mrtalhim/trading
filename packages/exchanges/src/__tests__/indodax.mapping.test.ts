@@ -44,6 +44,18 @@ describe('mapBalance', () => {
     const btc = balances.find((b) => b.asset === 'BTC');
     expect(btc).toMatchObject({ free: 0.5, used: 0.1, total: 0.6 });
   });
+
+  it('sums free + used when total is missing', () => {
+    const raw = {
+      free: { IDR: 800_000, BTC: 0.5 },
+      used: { BTC: 0.2 },
+    };
+    const balances = mapBalance(raw);
+    const btc = balances.find((b) => b.asset === 'BTC');
+    const idr = balances.find((b) => b.asset === 'IDR');
+    expect(btc).toMatchObject({ free: 0.5, used: 0.2, total: 0.7 });
+    expect(idr).toMatchObject({ free: 800_000, used: 0, total: 800_000 });
+  });
 });
 
 describe('mapOrder', () => {

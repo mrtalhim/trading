@@ -11,6 +11,11 @@ import type { Exchange } from '../interfaces.js';
 export interface PaperExchangeConfig {
   balances: Record<string, number>;
   feeRate?: number;
+  /**
+   * Full bid-ask spread in basis points (1 bps = 0.01%), applied symmetrically
+   * around the mid price. Market buys fill at ask, market sells at bid. Default 0.
+   */
+  spreadBps?: number;
 }
 
 interface PricePoint {
@@ -29,14 +34,16 @@ function baseQuote(symbol: string): [string, string] {
 /**
  * In-memory simulated exchange. No network, no real API. Prices are pushed in
  * via {@link PaperExchange.updatePrice} (typically driven by the replay/backtest
- * price feed). Market orders fill immediately at the last known price; limit
- * orders fill when the next pushed price crosses them, otherwise rest as open
- * and reserve the required balance.
+ * price feed) and treated as the mid price. If a `spreadBps` is configured, the
+ * ticker exposes a bid/ask around the mid and market orders cross the spread
+ * (buys at ask, sells at bid). Limit orders fill when the relevant side of the
+ * book crosses them, otherwise rest as open and reserve the required balance.
  */
 export class PaperExchange implements Exchange {
   readonly name = 'paper';
 
   private readonly feeRate: number;
+  private readonly halfSpread: number;
   private readonly balances = new Map<string, { free: number; used: number }>();
   private readonly lastPrice = new Map<string, PricePoint>();
   private readonly positions = new Map<string, number>();
@@ -45,6 +52,7 @@ export class PaperExchange implements Exchange {
 
   constructor(config: PaperExchangeConfig) {
     this.feeRate = config.feeRate ?? 0;
+    this.halfSpread = (config.spreadBps ?? 0) / 20000;
     for (const [asset, amount] of Object.entries(config.balances)) {
       if (amount < 0) throw new Error(`Negative initial balance for ${asset}`);
       this.balances.set(asset, { free: amount, used: 0 });
@@ -57,13 +65,25 @@ export class PaperExchange implements Exchange {
     this.matchLimitOrders(symbol);
   }
 
+  private midPrice(symbol: string): number {
+    return this.lastPrice.get(symbol)?.price ?? 0;
+  }
+
+  private bidPrice(symbol: string): number {
+    return this.midPrice(symbol) * (1 - this.halfSpread);
+  }
+
+  private askPrice(symbol: string): number {
+    return this.midPrice(symbol) * (1 + this.halfSpread);
+  }
+
   async fetchTicker(symbol: string): Promise<Ticker> {
     const point = this.lastPrice.get(symbol);
     if (!point) throw new Error(`No price known for ${symbol}`);
     return {
       symbol,
-      bid: point.price,
-      ask: point.price,
+      bid: this.bidPrice(symbol),
+      ask: this.askPrice(symbol),
       last: point.price,
       volume24h: 0,
       timestamp: point.timestamp,
@@ -92,16 +112,20 @@ export class PaperExchange implements Exchange {
     const crosses =
       params.type === 'limit' && point
         ? params.side === 'buy'
-          ? point.price <= limitPrice
-          : point.price >= limitPrice
+          ? this.askPrice(params.symbol) <= limitPrice
+          : this.bidPrice(params.symbol) >= limitPrice
         : true;
 
     const fillPrice =
       params.type === 'limit'
         ? crosses && point
-          ? Math.min(point.price, limitPrice)
+          ? params.side === 'buy'
+            ? Math.min(this.askPrice(params.symbol), limitPrice)
+            : Math.max(this.bidPrice(params.symbol), limitPrice)
           : limitPrice
-        : (point?.price ?? 0);
+        : params.side === 'buy'
+          ? this.askPrice(params.symbol)
+          : this.bidPrice(params.symbol);
 
     if (params.type === 'market' && !point) {
       return this.rejected(params);
@@ -200,11 +224,14 @@ export class PaperExchange implements Exchange {
     for (const order of this.orders.values()) {
       if (order.symbol !== symbol || order.status !== 'open') continue;
       const [base, quote] = baseQuote(symbol);
-      const point = this.lastPrice.get(symbol)!;
       const price = order.price!;
-      const crosses = order.side === 'buy' ? point.price <= price : point.price >= price;
+      const crosses =
+        order.side === 'buy' ? this.askPrice(symbol) <= price : this.bidPrice(symbol) >= price;
       if (!crosses) continue;
-      const fillPrice = Math.min(point.price, price);
+      const fillPrice =
+        order.side === 'buy'
+          ? Math.min(this.askPrice(symbol), price)
+          : Math.max(this.bidPrice(symbol), price);
       const cost = fillPrice * order.quantity;
       const fee = cost * this.feeRate;
       this.release(order);

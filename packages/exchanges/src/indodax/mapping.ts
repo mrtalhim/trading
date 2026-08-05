@@ -102,7 +102,7 @@ export function mapBalance(raw: CcxtLikeBalance): InternalBalance[] {
       asset,
       free: free[asset] ?? 0,
       used: used[asset] ?? 0,
-      total: total[asset] ?? free[asset] ?? 0 + (used[asset] ?? 0),
+      total: total[asset] ?? (free[asset] ?? 0) + (used[asset] ?? 0),
     };
     result.push(InternalBalanceSchema.parse(balance));
   }
