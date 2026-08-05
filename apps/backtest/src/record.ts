@@ -37,8 +37,7 @@ function buildSystemPrompt(symbol: string): string {
 
 function buildUserPrompt(recentCandles: Candle[]): string {
   const lines = recentCandles.map(
-    (c) =>
-      `t=${c.timestamp} O=${c.open} H=${c.high} L=${c.low} C=${c.close} V=${c.volume}`,
+    (c) => `t=${c.timestamp} O=${c.open} H=${c.high} L=${c.low} C=${c.close} V=${c.volume}`,
   );
   return [
     'Recent candles (oldest first):',

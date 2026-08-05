@@ -35,8 +35,7 @@ export abstract class BaseDecisionEngine {
       } catch (err) {
         if (!(err instanceof DecisionError)) throw err;
 
-        const isRetryable =
-          err.reason.includes('HTTP 429') || err.reason.includes('HTTP 5');
+        const isRetryable = err.reason.includes('HTTP 429') || err.reason.includes('HTTP 5');
 
         if (!isRetryable || attempt >= this.maxRetries) {
           throw err;
@@ -45,9 +44,7 @@ export abstract class BaseDecisionEngine {
         lastError = err;
 
         const retryAfter = this.extractRetryAfter(err.reason);
-        const delay = retryAfter
-          ? retryAfter * 1000
-          : this.initialRetryDelayMs * 2 ** attempt;
+        const delay = retryAfter ? retryAfter * 1000 : this.initialRetryDelayMs * 2 ** attempt;
 
         await this.sleep(delay);
       }
@@ -72,10 +69,7 @@ export abstract class BaseDecisionEngine {
       const body = await response.text();
 
       if (!response.ok) {
-        throw new DecisionError(
-          this.provider,
-          `HTTP ${response.status}: ${body.slice(0, 200)}`,
-        );
+        throw new DecisionError(this.provider, `HTTP ${response.status}: ${body.slice(0, 200)}`);
       }
 
       const raw = this.extractContent(body);

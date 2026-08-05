@@ -43,10 +43,7 @@ export interface DecisionEngine {
   decide(ctx: DecisionContext): Promise<Decision>;
 }
 
-export async function safeDecide(
-  engine: DecisionEngine,
-  ctx: DecisionContext,
-): Promise<Decision> {
+export async function safeDecide(engine: DecisionEngine, ctx: DecisionContext): Promise<Decision> {
   try {
     return await engine.decide(ctx);
   } catch (err) {

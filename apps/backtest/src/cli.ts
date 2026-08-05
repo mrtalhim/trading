@@ -42,7 +42,8 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
   if (!args.dataset) throw new Error('--dataset <dir> is required');
-  if (!args.decisions && !args.record) throw new Error('--decisions <file> or --record is required');
+  if (!args.decisions && !args.record)
+    throw new Error('--decisions <file> or --record is required');
   const symbol = args.symbol ?? 'BTC/USDT';
   const [base, quote] = symbol.split('/');
   if (!base || !quote) throw new Error(`invalid --symbol (expected BASE/QUOTE): ${symbol}`);

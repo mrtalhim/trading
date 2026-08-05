@@ -44,9 +44,7 @@ export function createEngineFromPreset(
 ): DecisionEngine {
   const preset = PRESETS[presetName];
   if (!preset) {
-    throw new Error(
-      `unknown preset: ${presetName}. available: ${Object.keys(PRESETS).join(', ')}`,
-    );
+    throw new Error(`unknown preset: ${presetName}. available: ${Object.keys(PRESETS).join(', ')}`);
   }
   return new OpenAICompatibleEngine({
     baseURL: preset.baseURL,
@@ -61,8 +59,7 @@ const PROVIDER_DEFAULTS: Record<string, { kind: 'openai'; baseURL: string }> = {
   openrouter: { kind: 'openai', baseURL: 'https://openrouter.ai/api/v1' },
   gemini: {
     kind: 'openai',
-    baseURL:
-      'https://generativelanguage.googleapis.com/v1beta/openai',
+    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
   },
   groq: { kind: 'openai', baseURL: 'https://api.groq.com/openai/v1' },
   ollama: { kind: 'openai', baseURL: 'http://localhost:11434/v1' },
@@ -87,9 +84,7 @@ export function createDecisionEngine(config: ProviderConfig): DecisionEngine {
   const defaults = PROVIDER_DEFAULTS[config.model.split('/')[0]];
   const baseURL = config.baseURL ?? defaults?.baseURL;
   if (!baseURL) {
-    throw new Error(
-      `no baseURL configured and no default for provider: ${config.model}`,
-    );
+    throw new Error(`no baseURL configured and no default for provider: ${config.model}`);
   }
 
   return new OpenAICompatibleEngine({

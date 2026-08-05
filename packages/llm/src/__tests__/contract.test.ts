@@ -23,9 +23,13 @@ function neverResolves(_url: string | URL | Request, init?: RequestInit): Promis
         reject(new DOMException('The operation was aborted.', 'AbortError'));
         return;
       }
-      init.signal.addEventListener('abort', () => {
-        reject(new DOMException('The operation was aborted.', 'AbortError'));
-      }, { once: true });
+      init.signal.addEventListener(
+        'abort',
+        () => {
+          reject(new DOMException('The operation was aborted.', 'AbortError'));
+        },
+        { once: true },
+      );
     }
   });
 }
@@ -101,9 +105,7 @@ describe.each(adapters)('DecisionEngine contract — %s', (name, makeEngine) => 
     });
 
     it('throws DecisionParseError for missing action', async () => {
-      const engine = makeEngine(async () =>
-        pick(JSON.stringify({ confidence: 0.5 })),
-      );
+      const engine = makeEngine(async () => pick(JSON.stringify({ confidence: 0.5 })));
       await expect(engine.decide(baseCtx)).rejects.toThrow(DecisionParseError);
     });
 
@@ -175,11 +177,7 @@ describe.each(adapters)('DecisionEngine contract — %s', (name, makeEngine) => 
 describe('retry on 429', () => {
   const VALID = JSON.stringify({ action: 'long', confidence: 0.7 });
 
-  function makeOpenAIEngine(
-    fetchImpl: typeof fetch,
-    maxRetries = 3,
-    initialRetryDelayMs = 10,
-  ) {
+  function makeOpenAIEngine(fetchImpl: typeof fetch, maxRetries = 3, initialRetryDelayMs = 10) {
     return new OpenAICompatibleEngine({
       baseURL: 'https://example.test/v1',
       apiKey: 'test-key',
@@ -256,10 +254,7 @@ describe('retry on 429', () => {
 
   it('does not retry on timeout', async () => {
     let calls = 0;
-    const fetchImpl = async (
-      _url: string | URL | Request,
-      init?: RequestInit,
-    ) => {
+    const fetchImpl = async (_url: string | URL | Request, init?: RequestInit) => {
       calls++;
       return neverResolves(_url, init);
     };
