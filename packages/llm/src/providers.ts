@@ -20,18 +20,18 @@ export interface Preset {
 
 export const PRESETS: Record<string, Preset> = {
   gemma4: {
-    name: 'Google Gemma 4 31B',
-    model: 'google/gemma-4-31b-it:free',
+    name: 'Google Gemma 4 26B',
+    model: 'google/gemma-4-26b-a4b-it:free',
     baseURL: 'https://openrouter.ai/api/v1',
   },
   nemotron: {
-    name: 'NVIDIA Nemotron 3 Super',
-    model: 'nvidia/nemotron-3-super-120b-a12b:free',
+    name: 'NVIDIA Nemotron 3 Nano 30B',
+    model: 'nvidia/nemotron-3-nano-30b-a3b:free',
     baseURL: 'https://openrouter.ai/api/v1',
   },
-  hy3: {
-    name: 'Tencent Hy3',
-    model: 'tencent/hy3:free',
+  gptoss: {
+    name: 'OpenAI GPT-OSS 20B',
+    model: 'openai/gpt-oss-20b:free',
     baseURL: 'https://openrouter.ai/api/v1',
   },
 };
