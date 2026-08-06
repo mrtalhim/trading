@@ -59,10 +59,9 @@ export async function probeDecisions(
 
     for (let r = 0; r < opts.repeats; r++) {
       results.push(await probeOnce(engine, ctx, ts));
-    }
-
-    if (opts.requestDelayMs > 0) {
-      await sleep(opts.requestDelayMs);
+      if (opts.requestDelayMs > 0) {
+        await sleep(opts.requestDelayMs);
+      }
     }
   }
   return results;
