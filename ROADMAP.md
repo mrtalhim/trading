@@ -57,7 +57,16 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 **Build**: `apps/benchmark` — runs recorded contexts (from M6/M7) through multiple provider/model configs, produces the leaderboard (valid-JSON rate, latency, cost, win rate, PnL, drawdown, consistency test).
 **Do not touch**: Indodax live integration.
 **Done when**: you can run the benchmark across at least 2 free models and 1 paid model on the same recorded dataset and get a comparable leaderboard.
-**Note (2026-08-06)**: no paid provider is available (no credit card). Per decision, the paid-model clause is met by running ≥2 free models (gemini native + OpenRouter free); `costUsd` is recorded (0 for free) and wired for future paid keys. App code is complete and all 273 tests green. Live run blocked on free-tier daily quotas: Gemini native hard-429s after its daily cap (20 req/min bucket never clears), OpenRouter throttles after ~50 req/day. Planned rerun: after daily quota reset, `apps/benchmark run --presets gemini,gemma4` with per-request throttle (probe `requestDelayMs` sleeps after every request, commit `f75df3e`). gemma4-only live row so far: validJsonRate 0.79, consistency 0.667, 5 trades, PnL 0.00, maxDrawdown 0.0114.
+**Done (2026-08-06)**: app code complete, all 273 tests green. OpenRouter credit added ($10) → `leaderboard run` completed across **4 free models on the same recorded dataset** (`datasets/golden/btc_15m`, 12 contexts × 2 repeats, `--decisions m8-decisions-sample.jsonl`):
+
+| model | validJson | latency | consistency | winRate | realizedPnl | trades |
+| --- | --- | --- | --- | --- | --- | --- |
+| gemini-2.5-flash | 0.79 | 8.4s | 0.67 | 0.60 | **+24.92** | 13 |
+| google/gemma-4-26b-a4b-it:free | 0.96 | 6.1s | 0.92 | 0.00 | 0.00 | 5 |
+| openai/gpt-oss-20b:free | 0.63 | 40.9s | 0.17 | 0.00 | 0.00 | 5 |
+| nvidia/nemotron-3-nano-30b-a3b:free | 1.00 | 5.0s | 0.83 | 0.50 | −16.50 | 8 |
+
+`costUsd` is 0 (all free) and wired for paid keys. Gemini native still rate-caps at 20 req/min — keep `--request-delay` ≥ 1s for gemini runs (commit `f75df3e`).
 
 ## M9 — Indodax live adapter
 
