@@ -57,6 +57,21 @@ importers:
         specifier: workspace:*
         version: link:../../packages/risk
 
+  apps/benchmark:
+    dependencies:
+      '@trading/backtest':
+        specifier: workspace:*
+        version: link:../backtest
+      '@trading/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@trading/datasets':
+        specifier: workspace:*
+        version: link:../../packages/datasets
+      '@trading/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
+
   packages/core:
     dependencies:
       zod:

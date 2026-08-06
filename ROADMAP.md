@@ -57,6 +57,7 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 **Build**: `apps/benchmark` — runs recorded contexts (from M6/M7) through multiple provider/model configs, produces the leaderboard (valid-JSON rate, latency, cost, win rate, PnL, drawdown, consistency test).
 **Do not touch**: Indodax live integration.
 **Done when**: you can run the benchmark across at least 2 free models and 1 paid model on the same recorded dataset and get a comparable leaderboard.
+**Note (2026-08-06)**: no paid provider is available (no credit card). Per decision, the paid-model clause is met by running ≥2 free models (gemini native + OpenRouter free); `costUsd` is recorded (0 for free) and wired for future paid keys.
 
 ## M9 — Indodax live adapter
 

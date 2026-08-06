@@ -197,6 +197,54 @@ Run 10,000 recorded historical candles through the full pipeline (paper exchange
 - ✓ Wake lock lost → alert fires (via notification channel)
 - ✓ Simulated process restart → reconciliation runs → state rebuilt from exchange → agent resumes correctly
 
+## Benchmark (`apps/benchmark`)
+
+M8. Runs the same recorded contexts (from M6/M7 datasets) through multiple provider/model configs and produces a comparable leaderboard. All probe/score/leaderboard logic is offline-testable with a fake engine — no network in tests.
+
+**Context reuse**
+
+- ✓ `buildDecisionSystemPrompt(symbol)` and `buildDecisionUserPrompt(candles)` (shared, in `packages/llm`) produce byte-identical prompts to the M7 `record` path (regression: recording behavior unchanged)
+
+**Probe**
+
+- ✓ `probeDecisions` returns exactly one `ProbeResult` per (recorded timestamp × repeat), with the context window derived from the dataset at that timestamp (same `lookback` as record)
+- ✓ Valid engine response → `validJson: true`, action and confidence recorded, no crash
+- ✓ Malformed response (engine throws `DecisionError`) → `validJson: false`, action/confidence null, no crash
+- ✓ `latencyMs` recorded (≥ 0) per request
+- ✓ `costUsd` recorded per request (0 for free engines)
+- ✓ `repeats: N` yields N results per timestamp (used by the consistency test)
+- ✓ Unknown timestamp in the dataset → throws a clear error, no silent skip
+- ✓ Deterministic except `latencyMs`: two runs with the same fake engine and dataset produce identical `validJson`/action/confidence/costUsd
+
+**Consistency test**
+
+- ✓ A context whose repeats all returned the same valid action counts as consistent
+- ✓ A context where any repeat failed to parse (invalid JSON/timeout) is inconsistent
+- ✓ A context where repeats disagree on action is inconsistent
+- ✓ `consistency` = consistent contexts / total contexts (0 if none)
+
+**Score**
+
+- ✓ Invalid probes map to `{action: hold, confidence: 0}` before replay (production `safeDecide` parity); the first probe per timestamp is what production would have used
+- ✓ `winRate` = winning closes / closed trades (closes = trades with `realizedPnl !== 0`)
+- ✓ `maxDrawdown` computed from the equity curve as the max peak-to-trough relative decline (0 when fewer than 2 points)
+- ✓ Deterministic: same probes + dataset → identical score and BacktestEngine checksum
+
+**BacktestEngine equity curve (M8 support)**
+
+- ✓ Default (no flag): result has no `equityCurve`; golden replay checksum unchanged (regression)
+- ✓ `collectEquity: true` → `equityCurve` has one `{timestamp, equity}` entry per candle, mark-to-market (`quoteFree + baseTotal*close`)
+- ✓ Equity curve values are finite (no NaN)
+
+**Leaderboard**
+
+- ✓ Merges probe stats + score per provider into one row: `validJsonRate`, `meanLatencyMs`, `consistency`, `costUsd`, `winRate`, `realizedPnl`, `maxDrawdown`, `tradeCount`
+- ✓ Rows sorted by `realizedPnl` desc, tie-break `validJsonRate` desc
+- ✓ Same inputs → byte-identical JSON output (no timestamps in output)
+- ✓ Provider with zero probes or zero valid decisions still appears with `winRate`/`consistency` = 0 rather than crashing
+
+**DoD (adapted per decision — no paid provider available):** the `leaderboard run` command completes across ≥2 free models (gemini native + OpenRouter free) on the same recorded dataset and emits a comparable leaderboard; `costUsd` is 0 for free models and wired for future paid keys.
+
 ## Definition of done (applies to every milestone in ROADMAP.md)
 
 - 100% of that milestone's tests passing

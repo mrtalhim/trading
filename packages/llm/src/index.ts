@@ -5,6 +5,11 @@ export {
   DecisionParseError,
   safeDecide,
 } from './interfaces.js';
+export {
+  buildDecisionSystemPrompt,
+  buildDecisionUserPrompt,
+  buildDecisionContext,
+} from './contexts.js';
 export { BaseDecisionEngine } from './base-engine.js';
 export { OpenAICompatibleEngine } from './openai-compatible.js';
 export { AnthropicEngine } from './anthropic.js';

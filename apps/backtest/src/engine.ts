@@ -22,6 +22,7 @@ export interface BacktestConfig {
   sizing: SizingConfig;
   atrStopMultiplier: number;
   guardrails?: Partial<GuardrailConfig>;
+  collectEquity?: boolean;
   featureSpecs?: { name: string; indicator: 'atr'; params?: Record<string, unknown> }[];
 }
 
@@ -60,6 +61,7 @@ export interface BacktestResult {
   guardrailViolations: Record<string, number>;
   trades: TradeRecord[];
   outcomes: OutcomeRecord[];
+  equityCurve?: { timestamp: number; equity: number }[];
   checksum: string;
 }
 
@@ -99,6 +101,7 @@ export class BacktestEngine {
   private cooldownUntil = 0;
   private dailyLoss = 0;
   private currentDay = -1;
+  private equityCurve: { timestamp: number; equity: number }[] = [];
 
   constructor(config: BacktestConfig) {
     this.config = config;
@@ -139,9 +142,23 @@ export class BacktestEngine {
       }
 
       await this.processCandle(candle, decision);
+
+      if (this.config.collectEquity) {
+        this.equityCurve.push(await this.equityAt(candle.timestamp, candle.close));
+      }
     }
 
     return this.buildResult();
+  }
+
+  private async equityAt(
+    timestamp: number,
+    price: number,
+  ): Promise<{ timestamp: number; equity: number }> {
+    const balances = await this.exchange.fetchBalance();
+    const quoteFree = balances.find((b) => b.asset === this.config.quote)?.free ?? 0;
+    const baseTotal = balances.find((b) => b.asset === this.config.base)?.total ?? 0;
+    return { timestamp, equity: quoteFree + baseTotal * price };
   }
 
   private async finalBook(price: number): Promise<{
@@ -412,6 +429,7 @@ export class BacktestEngine {
       guardrailViolations,
       trades: this.trades,
       outcomes: this.outcomes,
+      ...(this.config.collectEquity ? { equityCurve: this.equityCurve } : {}),
     };
 
     const checksum = createHash('sha256')
