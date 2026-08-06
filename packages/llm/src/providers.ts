@@ -1,4 +1,5 @@
 import type { DecisionEngine } from './interfaces.js';
+import type { CostModel } from './interfaces.js';
 import { OpenAICompatibleEngine } from './openai-compatible.js';
 import { AnthropicEngine } from './anthropic.js';
 import { GeminiEngine } from './gemini.js';
@@ -11,6 +12,7 @@ export interface ProviderConfig {
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
   extraHeaders?: Record<string, string>;
+  costModel?: CostModel;
 }
 
 export interface Preset {
@@ -18,6 +20,7 @@ export interface Preset {
   kind: 'openai' | 'gemini';
   model: string;
   baseURL?: string;
+  costModel?: CostModel;
 }
 
 export const PRESETS: Record<string, Preset> = {
@@ -49,24 +52,28 @@ export const PRESETS: Record<string, Preset> = {
     kind: 'openai',
     model: 'google/gemma-4-31b-it',
     baseURL: 'https://openrouter.ai/api/v1',
+    costModel: { promptPerMillionUsd: 0.1, completionPerMillionUsd: 0.34 },
   },
   gptoss120b: {
     name: 'OpenAI GPT-OSS 120B',
     kind: 'openai',
     model: 'openai/gpt-oss-120b',
     baseURL: 'https://openrouter.ai/api/v1',
+    costModel: { promptPerMillionUsd: 0.037, completionPerMillionUsd: 0.17 },
   },
   lunapro: {
     name: 'OpenAI GPT-5.6 Luna Pro',
     kind: 'openai',
     model: 'openai/gpt-5.6-luna-pro',
     baseURL: 'https://openrouter.ai/api/v1',
+    costModel: { promptPerMillionUsd: 0.1, completionPerMillionUsd: 0.6 },
   },
   deepseekv4: {
     name: 'DeepSeek V4 Flash',
     kind: 'openai',
     model: 'deepseek/deepseek-v4-flash',
     baseURL: 'https://openrouter.ai/api/v1',
+    costModel: { promptPerMillionUsd: 0.0882, completionPerMillionUsd: 0.1764 },
   },
   gemini36: {
     name: 'Google Gemini 3.6 Flash',
@@ -96,6 +103,7 @@ export function createEngineFromPreset(
       model: preset.model,
       timeoutMs,
       fetchImpl,
+      costModel: preset.costModel,
     });
   }
   return new OpenAICompatibleEngine({
@@ -104,6 +112,7 @@ export function createEngineFromPreset(
     model: preset.model,
     timeoutMs,
     fetchImpl,
+    costModel: preset.costModel,
   });
 }
 
@@ -130,6 +139,7 @@ export function createDecisionEngine(config: ProviderConfig): DecisionEngine {
       model: config.model,
       timeoutMs: config.timeoutMs,
       fetchImpl: config.fetchImpl,
+      costModel: config.costModel,
     });
   }
 
@@ -140,6 +150,7 @@ export function createDecisionEngine(config: ProviderConfig): DecisionEngine {
       model: config.model,
       timeoutMs: config.timeoutMs,
       fetchImpl: config.fetchImpl,
+      costModel: config.costModel,
     });
   }
 
@@ -156,5 +167,6 @@ export function createDecisionEngine(config: ProviderConfig): DecisionEngine {
     timeoutMs: config.timeoutMs,
     fetchImpl: config.fetchImpl,
     extraHeaders: config.extraHeaders,
+    costModel: config.costModel,
   });
 }

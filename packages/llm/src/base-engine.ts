@@ -1,7 +1,14 @@
 import { parseDecision } from '@trading/core';
 import type { Decision } from '@trading/core';
-import type { DecisionContext } from './interfaces.js';
-import { DecisionError, DecisionParseError, DecisionTimeoutError } from './interfaces.js';
+import type { DecisionContext, DecisionWithUsage } from './interfaces.js';
+import {
+  ZERO_COST_MODEL,
+  type CostModel,
+  DecisionError,
+  DecisionParseError,
+  DecisionTimeoutError,
+  type Usage,
+} from './interfaces.js';
 
 export interface BaseEngineConfig {
   provider: string;
@@ -9,10 +16,12 @@ export interface BaseEngineConfig {
   fetchImpl?: typeof fetch;
   maxRetries?: number;
   initialRetryDelayMs?: number;
+  costModel?: CostModel;
 }
 
 export abstract class BaseDecisionEngine {
   readonly provider: string;
+  readonly costModel: CostModel;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
   private readonly maxRetries: number;
@@ -24,9 +33,14 @@ export abstract class BaseDecisionEngine {
     this.fetchImpl = config.fetchImpl ?? globalThis.fetch;
     this.maxRetries = config.maxRetries ?? 3;
     this.initialRetryDelayMs = config.initialRetryDelayMs ?? 1000;
+    this.costModel = config.costModel ?? ZERO_COST_MODEL;
   }
 
   async decide(ctx: DecisionContext): Promise<Decision> {
+    return (await this.decideWithUsage(ctx)).decision;
+  }
+
+  async decideWithUsage(ctx: DecisionContext): Promise<DecisionWithUsage> {
     let lastError: DecisionError | undefined;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -53,7 +67,7 @@ export abstract class BaseDecisionEngine {
     throw lastError!;
   }
 
-  private async attemptDecide(ctx: DecisionContext): Promise<Decision> {
+  private async attemptDecide(ctx: DecisionContext): Promise<DecisionWithUsage> {
     const { payload, url, headers } = this.buildRequest(ctx);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -73,7 +87,8 @@ export abstract class BaseDecisionEngine {
       }
 
       const raw = this.extractContent(body);
-      return this.parse(raw);
+      const decision = this.parse(raw);
+      return { decision, usage: this.extractUsage(body) };
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         throw new DecisionTimeoutError(this.provider, this.timeoutMs);
@@ -102,6 +117,10 @@ export abstract class BaseDecisionEngine {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  protected extractUsage(_body: string): Usage | null {
+    return null;
   }
 
   protected abstract buildRequest(ctx: DecisionContext): {

@@ -1,4 +1,6 @@
 export type { DecisionContext, DecisionEngine } from './interfaces.js';
+export type { Usage, CostModel, DecisionWithUsage } from './interfaces.js';
+export { ZERO_COST_MODEL } from './interfaces.js';
 export {
   DecisionError,
   DecisionTimeoutError,

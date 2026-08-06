@@ -1,6 +1,7 @@
 export {
   probeDecisions,
   probeStats,
+  computeCostUsd,
   type ProbeOptions,
   type ProbeResult,
   type ProbeStats,

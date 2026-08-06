@@ -1,4 +1,4 @@
-import type { DecisionContext } from './interfaces.js';
+import type { DecisionContext, CostModel, Usage } from './interfaces.js';
 import { BaseDecisionEngine } from './base-engine.js';
 
 export interface OpenAICompatibleConfig {
@@ -10,6 +10,7 @@ export interface OpenAICompatibleConfig {
   fetchImpl?: typeof fetch;
   maxRetries?: number;
   initialRetryDelayMs?: number;
+  costModel?: CostModel;
 }
 
 export class OpenAICompatibleEngine extends BaseDecisionEngine {
@@ -25,6 +26,7 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
       fetchImpl: config.fetchImpl,
       maxRetries: config.maxRetries,
       initialRetryDelayMs: config.initialRetryDelayMs,
+      costModel: config.costModel,
     });
     this.baseURL = config.baseURL;
     this.apiKey = config.apiKey;
@@ -62,5 +64,20 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
       return choices[0].message.content;
     }
     throw new Error(`unexpected OpenAI response shape: ${body.slice(0, 200)}`);
+  }
+
+  protected extractUsage(body: string): Usage | null {
+    const parsed = JSON.parse(body) as {
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    };
+    const u = parsed.usage;
+    if (!u || u.prompt_tokens === undefined || u.completion_tokens === undefined) {
+      return null;
+    }
+    return {
+      promptTokens: u.prompt_tokens,
+      completionTokens: u.completion_tokens,
+      totalTokens: u.total_tokens ?? u.prompt_tokens + u.completion_tokens,
+    };
   }
 }

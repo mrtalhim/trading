@@ -1,6 +1,12 @@
 import type { Candle, Decision } from '../../packages/core/src/index.js';
 import type { Dataset, DatasetMetadata } from '../../packages/datasets/src/index.js';
-import type { DecisionContext, DecisionEngine } from '../../packages/llm/src/index.js';
+import type {
+  CostModel,
+  DecisionContext,
+  DecisionEngine,
+  DecisionWithUsage,
+  Usage,
+} from '../../packages/llm/src/index.js';
 import { DecisionParseError } from '../../packages/llm/src/index.js';
 
 export function makeCandles(
@@ -45,15 +51,27 @@ export function memoryDataset(candles: Candle[]): Dataset {
 
 export class FakeEngine implements DecisionEngine {
   readonly provider: string;
+  readonly costModel: CostModel;
   private readonly respond: (ctx: DecisionContext) => Decision;
+  private readonly usage: Usage | null;
 
-  constructor(provider: string, respond: (ctx: DecisionContext) => Decision) {
+  constructor(
+    provider: string,
+    respond: (ctx: DecisionContext) => Decision,
+    opts: { costModel?: CostModel; usage?: Usage | null } = {},
+  ) {
     this.provider = provider;
     this.respond = respond;
+    this.costModel = opts.costModel ?? { promptPerMillionUsd: 0, completionPerMillionUsd: 0 };
+    this.usage = opts.usage ?? null;
   }
 
   async decide(ctx: DecisionContext): Promise<Decision> {
     return this.respond(ctx);
+  }
+
+  async decideWithUsage(ctx: DecisionContext): Promise<DecisionWithUsage> {
+    return { decision: await this.decide(ctx), usage: this.usage };
   }
 
   static valid(provider: string, decision: Decision): FakeEngine {

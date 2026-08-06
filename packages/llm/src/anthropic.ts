@@ -1,4 +1,4 @@
-import type { DecisionContext } from './interfaces.js';
+import type { DecisionContext, CostModel, Usage } from './interfaces.js';
 import { BaseDecisionEngine } from './base-engine.js';
 
 export interface AnthropicConfig {
@@ -8,6 +8,7 @@ export interface AnthropicConfig {
   fetchImpl?: typeof fetch;
   maxRetries?: number;
   initialRetryDelayMs?: number;
+  costModel?: CostModel;
 }
 
 export class AnthropicEngine extends BaseDecisionEngine {
@@ -24,6 +25,7 @@ export class AnthropicEngine extends BaseDecisionEngine {
       fetchImpl: config.fetchImpl,
       maxRetries: config.maxRetries,
       initialRetryDelayMs: config.initialRetryDelayMs,
+      costModel: config.costModel,
     });
     this.apiKey = config.apiKey;
     this.model = config.model;
@@ -58,5 +60,20 @@ export class AnthropicEngine extends BaseDecisionEngine {
       return content[0].text;
     }
     throw new Error(`unexpected Anthropic response shape: ${body.slice(0, 200)}`);
+  }
+
+  protected extractUsage(body: string): Usage | null {
+    const parsed = JSON.parse(body) as {
+      usage?: { input_tokens?: number; output_tokens?: number };
+    };
+    const u = parsed.usage;
+    if (!u || u.input_tokens === undefined || u.output_tokens === undefined) {
+      return null;
+    }
+    return {
+      promptTokens: u.input_tokens,
+      completionTokens: u.output_tokens,
+      totalTokens: u.input_tokens + u.output_tokens,
+    };
   }
 }

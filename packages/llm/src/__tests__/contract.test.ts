@@ -195,6 +195,90 @@ describe.each(adapters)('DecisionEngine contract — %s', (name, makeEngine) => 
   });
 });
 
+describe('usage tracking', () => {
+  const ctx: DecisionContext = { ...baseCtx };
+
+  function openAIEngine(fetchImpl: typeof fetch): DecisionEngine {
+    return new OpenAICompatibleEngine({
+      baseURL: 'https://example.test/v1',
+      apiKey: 'test-key',
+      model: 'test/model',
+      timeoutMs: 500,
+      fetchImpl,
+      maxRetries: 0,
+    });
+  }
+
+  const HOLD = JSON.stringify({ action: 'hold', confidence: 0.5 });
+
+  it('openai-compatible parses usage from the response', async () => {
+    const fetchImpl = async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: HOLD } }],
+          usage: { prompt_tokens: 120, completion_tokens: 30, total_tokens: 150 },
+        }),
+      );
+    const res = await openAIEngine(fetchImpl).decideWithUsage!(ctx);
+    expect(res.decision).toEqual({ action: 'hold', confidence: 0.5 });
+    expect(res.usage).toEqual({ promptTokens: 120, completionTokens: 30, totalTokens: 150 });
+  });
+
+  it('gemini parses usageMetadata from the response', async () => {
+    const fetchImpl = async () =>
+      new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: HOLD }] } }],
+          usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 25, totalTokenCount: 125 },
+        }),
+      );
+    const engine = new GeminiEngine({
+      apiKey: 'test-key',
+      model: 'gemini-2.5-flash',
+      timeoutMs: 500,
+      fetchImpl,
+      maxRetries: 0,
+    });
+    const res = await engine.decideWithUsage!(ctx);
+    expect(res.usage).toEqual({ promptTokens: 100, completionTokens: 25, totalTokens: 125 });
+  });
+
+  it('anthropic parses usage from the response', async () => {
+    const fetchImpl = async () =>
+      new Response(
+        JSON.stringify({
+          content: [{ type: 'text', text: HOLD }],
+          usage: { input_tokens: 80, output_tokens: 20 },
+        }),
+      );
+    const engine = new AnthropicEngine({
+      apiKey: 'test-key',
+      model: 'test-claude',
+      timeoutMs: 500,
+      fetchImpl,
+      maxRetries: 0,
+    });
+    const res = await engine.decideWithUsage!(ctx);
+    expect(res.usage).toEqual({ promptTokens: 80, completionTokens: 20, totalTokens: 100 });
+  });
+
+  it('returns usage null when the response omits usage', async () => {
+    const engine = openAIEngine(async () => openAIResponse(HOLD));
+    const res = await engine.decideWithUsage!(ctx);
+    expect(res.usage).toBeNull();
+    expect(res.decision).toEqual({ action: 'hold', confidence: 0.5 });
+  });
+
+  it('decide() and decideWithUsage() agree on the decision', async () => {
+    const LONG = JSON.stringify({ action: 'long', confidence: 0.7 });
+    const engine = openAIEngine(async () => openAIResponse(LONG));
+    const [plain, withUsage] = await Promise.all([
+      engine.decide(ctx),
+      engine.decideWithUsage!(ctx),
+    ]);
+    expect(withUsage.decision).toEqual(plain);
+  });
+});
 describe('retry on 429', () => {
   const VALID = JSON.stringify({ action: 'long', confidence: 0.7 });
 

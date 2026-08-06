@@ -1,4 +1,4 @@
-import type { DecisionContext } from './interfaces.js';
+import type { DecisionContext, CostModel, Usage } from './interfaces.js';
 import { BaseDecisionEngine } from './base-engine.js';
 
 export interface GeminiConfig {
@@ -8,6 +8,7 @@ export interface GeminiConfig {
   fetchImpl?: typeof fetch;
   maxRetries?: number;
   initialRetryDelayMs?: number;
+  costModel?: CostModel;
 }
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -23,6 +24,7 @@ export class GeminiEngine extends BaseDecisionEngine {
       fetchImpl: config.fetchImpl,
       maxRetries: config.maxRetries,
       initialRetryDelayMs: config.initialRetryDelayMs,
+      costModel: config.costModel,
     });
     this.apiKey = config.apiKey;
     this.model = config.model;
@@ -55,5 +57,24 @@ export class GeminiEngine extends BaseDecisionEngine {
       }
     }
     throw new Error(`unexpected Gemini response shape: ${body.slice(0, 200)}`);
+  }
+
+  protected extractUsage(body: string): Usage | null {
+    const parsed = JSON.parse(body) as {
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+    };
+    const u = parsed.usageMetadata;
+    if (!u || u.promptTokenCount === undefined || u.candidatesTokenCount === undefined) {
+      return null;
+    }
+    return {
+      promptTokens: u.promptTokenCount,
+      completionTokens: u.candidatesTokenCount,
+      totalTokens: u.totalTokenCount ?? u.promptTokenCount + u.candidatesTokenCount,
+    };
   }
 }

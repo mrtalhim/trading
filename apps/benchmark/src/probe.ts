@@ -1,6 +1,6 @@
 import type { Dataset } from '@trading/datasets';
 import { ReplayLoader } from '@trading/datasets';
-import type { DecisionEngine, DecisionContext } from '@trading/llm';
+import type { DecisionEngine, DecisionContext, CostModel, Usage } from '@trading/llm';
 import { buildDecisionContext } from '@trading/llm';
 import type { Action } from '@trading/core';
 
@@ -74,7 +74,9 @@ async function probeOnce(
 ): Promise<ProbeResult> {
   const started = performance.now();
   try {
-    const decision = await engine.decide(ctx);
+    const { decision, usage } = engine.decideWithUsage
+      ? await engine.decideWithUsage(ctx)
+      : { decision: await engine.decide(ctx), usage: null };
     const latencyMs = performance.now() - started;
     return {
       timestamp,
@@ -83,7 +85,7 @@ async function probeOnce(
       action: decision.action,
       confidence: decision.confidence,
       latencyMs,
-      costUsd: 0,
+      costUsd: computeCostUsd(usage, engine.costModel),
     };
   } catch (err) {
     const latencyMs = performance.now() - started;
@@ -100,6 +102,15 @@ async function probeOnce(
     }
     throw err;
   }
+}
+
+export function computeCostUsd(usage: Usage | null, costModel: CostModel | undefined): number {
+  if (!usage || !costModel) return 0;
+  return (
+    (usage.promptTokens * costModel.promptPerMillionUsd +
+      usage.completionTokens * costModel.completionPerMillionUsd) /
+    1_000_000
+  );
 }
 
 export function probeStats(probes: ProbeResult[]): ProbeStats {
