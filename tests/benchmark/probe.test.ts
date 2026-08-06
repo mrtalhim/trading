@@ -78,8 +78,8 @@ describe('probeDecisions', () => {
       requestDelayMs: 0,
     });
     for (let i = 0; i < r1.length; i++) {
-      const { latencyMs: _l1, ...a } = r1[i];
-      const { latencyMs: _l2, ...b } = r2[i];
+      const a = Object.fromEntries(Object.entries(r1[i]).filter(([key]) => key !== 'latencyMs'));
+      const b = Object.fromEntries(Object.entries(r2[i]).filter(([key]) => key !== 'latencyMs'));
       expect(a).toEqual(b);
     }
   });

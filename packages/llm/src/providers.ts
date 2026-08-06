@@ -44,6 +44,40 @@ export const PRESETS: Record<string, Preset> = {
     kind: 'gemini',
     model: 'gemini-2.5-flash',
   },
+  gemma431: {
+    name: 'Google Gemma 4 31B',
+    kind: 'openai',
+    model: 'google/gemma-4-31b-it',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  gptoss120b: {
+    name: 'OpenAI GPT-OSS 120B',
+    kind: 'openai',
+    model: 'openai/gpt-oss-120b',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  lunapro: {
+    name: 'OpenAI GPT-5.6 Luna Pro',
+    kind: 'openai',
+    model: 'openai/gpt-5.6-luna-pro',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  deepseekv4: {
+    name: 'DeepSeek V4 Flash',
+    kind: 'openai',
+    model: 'deepseek/deepseek-v4-flash',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  gemini36: {
+    name: 'Google Gemini 3.6 Flash',
+    kind: 'gemini',
+    model: 'gemini-3.6-flash',
+  },
+  gemini35lite: {
+    name: 'Google Gemini 3.5 Flash Lite',
+    kind: 'gemini',
+    model: 'gemini-3.5-flash-lite',
+  },
 };
 
 export function createEngineFromPreset(

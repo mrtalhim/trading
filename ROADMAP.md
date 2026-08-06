@@ -68,6 +68,18 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 
 `costUsd` is 0 (all free) and wired for paid keys. Gemini native still rate-caps at 20 req/min — keep `--request-delay` ≥ 1s for gemini runs (commit `f75df3e`).
 
+**Extended (2026-08-06)**: added cheap paid + newer Gemini presets (`gemma431`, `gptoss120b`, `lunapro`, `deepseekv4`, `gemini36`, `gemini35lite`) via OpenRouter credit. Final 5-model leaderboard on the same dataset (12 contexts × 2 repeats):
+
+| model | validJson | latency | consistency | winRate | realizedPnl | trades |
+| --- | --- | --- | --- | --- | --- | --- |
+| deepseek/deepseek-v4-flash | 0.79 | 8.7s | 0.50 | 0.50 | **+203.90** | 8 |
+| openai/gpt-oss-120b | 1.00 | 15.3s | 0.83 | 0.00 | 0.00 | 5 |
+| openai/gpt-5.6-luna-pro | 1.00 | 7.1s | 0.92 | 0.00 | 0.00 | 5 |
+| google/gemma-4-31b-it | 1.00 | 3.2s | 1.00 | 0.50 | −16.50 | 8 |
+| gemini-3.5-flash-lite | 1.00 | 1.3s | 1.00 | 0.50 | −16.50 | 8 |
+
+gemini-3.5-flash-lite and gemma-4-31b produced byte-identical trades. `gemini-3.6-flash` excluded: free-tier **daily** quota exhausted mid-run (429 "check your plan"; unlike 2.5-flash's per-minute cap) — probe rows were poisoned by quota, not model quality. Fixed `apiKeyForPreset` (cli.ts) which routed only the exact name `'gemini'` to GEMINI_API_KEY, silently sending the OpenRouter key for the other Gemini presets (fast-fail 400s).
+
 ## M9 — Indodax live adapter
 
 **Build**: real `packages/exchanges/indodax` implementation (replacing paper for this adapter), retry policy, clock sync, exchange filters, reconciliation (startup + periodic), authenticated control commands, cost/budget caps, daily reset logic, position ownership policy.

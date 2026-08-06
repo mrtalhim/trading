@@ -71,12 +71,16 @@ function parseArgs(argv: string[]): CliArgs {
   };
 }
 
+export function envNameForPreset(preset: string): 'GEMINI_API_KEY' | 'OPENROUTER_API_KEY' {
+  return PRESETS[preset]?.kind === 'gemini' ? 'GEMINI_API_KEY' : 'OPENROUTER_API_KEY';
+}
+
 function apiKeyForPreset(preset: string, override?: string): string {
   if (override) return override;
-  const env = preset === 'gemini' ? process.env.GEMINI_API_KEY : process.env.OPENROUTER_API_KEY;
+  const env = process.env[envNameForPreset(preset)];
   if (!env) {
     throw new Error(
-      `no API key for preset '${preset}': pass --api-key or set ${preset === 'gemini' ? 'GEMINI_API_KEY' : 'OPENROUTER_API_KEY'}`,
+      `no API key for preset '${preset}': pass --api-key or set ${envNameForPreset(preset)}`,
     );
   }
   return env;

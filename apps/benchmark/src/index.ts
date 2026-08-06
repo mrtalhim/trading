@@ -14,3 +14,4 @@ export {
 } from './score.js';
 export { buildLeaderboard, type Leaderboard, type LeaderboardRow } from './leaderboard.js';
 export { runBenchmarkCli } from './cli.js';
+export { envNameForPreset } from './cli.js';
