@@ -3,6 +3,7 @@ import type { DecisionEngine, DecisionContext } from '../interfaces.js';
 import { safeDecide, DecisionParseError, DecisionTimeoutError } from '../interfaces.js';
 import { OpenAICompatibleEngine } from '../openai-compatible.js';
 import { AnthropicEngine } from '../anthropic.js';
+import { GeminiEngine } from '../gemini.js';
 
 const VALID_DECISION = JSON.stringify({ action: 'long', confidence: 0.7 });
 const VALID_SHORT = JSON.stringify({ action: 'short', confidence: 0.9 });
@@ -14,6 +15,12 @@ function openAIResponse(content: string, status = 200): Response {
 
 function anthropicResponse(text: string, status = 200): Response {
   return new Response(JSON.stringify({ content: [{ type: 'text', text }] }), { status });
+}
+
+function geminiResponse(text: string, status = 200): Response {
+  return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), {
+    status,
+  });
 }
 
 function neverResolves(_url: string | URL | Request, init?: RequestInit): Promise<Response> {
@@ -65,11 +72,25 @@ const adapters: AdapterEntry[] = [
         maxRetries: 0,
       }),
   ],
+  [
+    'Gemini',
+    (fi) =>
+      new GeminiEngine({
+        apiKey: 'test-key',
+        model: 'gemini-2.5-flash',
+        timeoutMs: 500,
+        fetchImpl: fi,
+        maxRetries: 0,
+      }),
+  ],
 ];
 
 describe.each(adapters)('DecisionEngine contract — %s', (name, makeEngine) => {
-  const pick = (content: string) =>
-    name === 'OpenAICompatible' ? openAIResponse(content) : anthropicResponse(content);
+  const pick = (content: string) => {
+    if (name === 'OpenAICompatible') return openAIResponse(content);
+    if (name === 'Anthropic') return anthropicResponse(content);
+    return geminiResponse(content);
+  };
 
   describe('well-formed response', () => {
     it('parses long decision', async () => {

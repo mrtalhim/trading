@@ -1,9 +1,10 @@
 import type { DecisionEngine } from './interfaces.js';
 import { OpenAICompatibleEngine } from './openai-compatible.js';
 import { AnthropicEngine } from './anthropic.js';
+import { GeminiEngine } from './gemini.js';
 
 export interface ProviderConfig {
-  kind: 'openai' | 'anthropic';
+  kind: 'openai' | 'anthropic' | 'gemini';
   model: string;
   baseURL?: string;
   apiKey?: string;
@@ -14,25 +15,34 @@ export interface ProviderConfig {
 
 export interface Preset {
   name: string;
+  kind: 'openai' | 'gemini';
   model: string;
-  baseURL: string;
+  baseURL?: string;
 }
 
 export const PRESETS: Record<string, Preset> = {
   gemma4: {
     name: 'Google Gemma 4 26B',
+    kind: 'openai',
     model: 'google/gemma-4-26b-a4b-it:free',
     baseURL: 'https://openrouter.ai/api/v1',
   },
   nemotron: {
     name: 'NVIDIA Nemotron 3 Nano 30B',
+    kind: 'openai',
     model: 'nvidia/nemotron-3-nano-30b-a3b:free',
     baseURL: 'https://openrouter.ai/api/v1',
   },
   gptoss: {
     name: 'OpenAI GPT-OSS 20B',
+    kind: 'openai',
     model: 'openai/gpt-oss-20b:free',
     baseURL: 'https://openrouter.ai/api/v1',
+  },
+  gemini: {
+    name: 'Google Gemini 2.5 Flash',
+    kind: 'gemini',
+    model: 'gemini-2.5-flash',
   },
 };
 
@@ -46,8 +56,16 @@ export function createEngineFromPreset(
   if (!preset) {
     throw new Error(`unknown preset: ${presetName}. available: ${Object.keys(PRESETS).join(', ')}`);
   }
+  if (preset.kind === 'gemini') {
+    return new GeminiEngine({
+      apiKey,
+      model: preset.model,
+      timeoutMs,
+      fetchImpl,
+    });
+  }
   return new OpenAICompatibleEngine({
-    baseURL: preset.baseURL,
+    baseURL: preset.baseURL!,
     apiKey,
     model: preset.model,
     timeoutMs,
@@ -74,6 +92,16 @@ export function createDecisionEngine(config: ProviderConfig): DecisionEngine {
   if (config.kind === 'anthropic') {
     if (!config.apiKey) throw new Error('apiKey is required for anthropic');
     return new AnthropicEngine({
+      apiKey: config.apiKey,
+      model: config.model,
+      timeoutMs: config.timeoutMs,
+      fetchImpl: config.fetchImpl,
+    });
+  }
+
+  if (config.kind === 'gemini') {
+    if (!config.apiKey) throw new Error('apiKey is required for gemini');
+    return new GeminiEngine({
       apiKey: config.apiKey,
       model: config.model,
       timeoutMs: config.timeoutMs,
