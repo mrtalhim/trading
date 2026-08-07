@@ -30,3 +30,28 @@ export {
   executeWithRetry,
   executeCreateWithRecovery,
 } from './indodax/mapping.js';
+export {
+  IndodaxPublicApiClient,
+  parseHistoryBars,
+  parsePairInfo,
+  historyRetryPolicy,
+  PublicApiError,
+} from './indodax/public-api.js';
+export type {
+  FetchFn,
+  HistoryV2Bar,
+  HistoryBar,
+  HistoryRequest,
+  PairInfo,
+  SearchSymbol,
+  RetryPolicy as PublicRetryPolicy,
+} from './indodax/public-api.js';
+export { ClockSync } from './indodax/clock.js';
+export type { FetchServerTime, NowFn } from './indodax/clock.js';
+export { BudgetTracker, WIB_OFFSET_MS } from './indodax/budget.js';
+export type { BudgetConfig, BudgetNowFn } from './indodax/budget.js';
+export { buildClientOrderId, isOwnedOrder } from './indodax/ownership.js';
+export { reconcile } from './indodax/reconcile.js';
+export type { ReconcileInput, ReconcileResult } from './indodax/reconcile.js';
+export { createLiveIndodax } from './indodax/live.js';
+export type { LiveIndodax, LiveIndodaxConfig } from './indodax/live.js';

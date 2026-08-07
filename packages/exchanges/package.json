@@ -12,7 +12,8 @@
     }
   },
   "dependencies": {
-    "@trading/core": "workspace:*"
+    "@trading/core": "workspace:*",
+    "ccxt": "^4.5.71"
   },
   "scripts": {
     "build": "tsc -b"

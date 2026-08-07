@@ -151,6 +151,50 @@ Deterministic, pure candle-geometry detectors. Every detector analyses the last 
 - ✓ Invalid probes mapped to `{action: hold, confidence: 0}` before scoring, matching the M8 score path
 - Offline-only: no network in the analyzer or its tests
 
+## Indodax live adapter (`packages/exchanges/indodax`) — M9
+
+**`history_v2` public client**
+
+- ✓ Parses a known raw `history_v2` response into `Candle[]`: `Time` (epoch seconds) → `timestamp` (ms), `Volume` (string) → `volume` number, `Open/High/Low/Close` mapped
+- ✓ `tf` accepted as string (`"15"`) and number (`15`); supported resolutions match the charting datafeed (`1`,`5`,`15`,`30`,`h`,`2H`,`4H`,`D`,`3D`,`W`,`2W`,`1M`)
+- ✓ Symbol ids come from the `search_v2` response `id` field (uppercase ticker, e.g. `BTCIDR`) — not the CCXT pair symbol
+- ✓ Bars outside the requested `[from, to)` window are dropped; `[]` response → empty result (noData), no crash
+- ✓ `pairs_v2` maps to `PairInfo`: `ticker_id`, `minNotional` (`trade_min_base_currency`), `minQuantity` (`trade_min_traded_currency`), `feeTaker`/`feeMaker`, `pricePrecision`, `isMaintenance`
+- ✓ Non-200 / network failures throw a clear error (no silent empty array); retried per policy for transient statuses
+- Tests inject the fetch function — no network in unit tests
+
+**Dataset puller**
+
+- ✓ Pulling a range writes a canonical dataset dir (`metadata.json` + `candles.jsonl`) readable by `JsonlLoader`
+- ✓ Pulled candles pass `validateCandles(candles, interval)`; `metadata.checksum` equals `computeChecksum(candles)`
+- ✓ Same server response → identical dataset bytes (deterministic)
+
+**Clock sync**
+
+- ✓ `skewMs = serverTime - localNow`; positive and negative skew handled
+- ✓ Sync failure keeps the previous skew and does not crash
+- ✓ Skew value is available to feed the clock-skew guardrail (`MarketState.clockSkewMs`)
+
+**Budget caps + daily reset**
+
+- ✓ `spend(notional)` under the configured daily IDR cap is allowed; spending past the cap → `canSpend` false (reject new positions)
+- ✓ Daily spending resets at the WIB (Asia/Bangkok) day boundary, per the exchange clock
+- ✓ NaN / negative spends are rejected, never accumulated
+
+**Reconciliation + position ownership**
+
+- ✓ Only orders whose `clientOrderId` carries this agent's prefix are owned; unowned open orders are never cancelled or counted
+- ✓ Startup reconciliation rebuilds position state from exchange balances + open orders
+- ✓ Periodic reconciliation picks up new fills and updates the position
+- ✓ Simulated process restart → reconciled state has no leaked trades and no duplicate `clientOrderId`
+
+**Signal-file control commands**
+
+- ✓ `pause` file → loop skips new positions but keeps monitoring; `resume` → new positions allowed again
+- ✓ `shutdown` file → loop exits cleanly with state flushed
+- ✓ `status` request → writes a `status.json` with the last cycle's summary
+- ✓ Missing/unparseable signal file → treated as no command, loop continues (no crash)
+
 ## Validation (`packages/core`)
 
 - ✓ Accepts a well-formed `{action, confidence}` JSON object
@@ -303,6 +347,15 @@ M8. Runs the same recorded contexts (from M6/M7 datasets) through multiple provi
 - ✓ Provider with zero probes or zero valid decisions still appears with `winRate`/`consistency` = 0 rather than crashing
 
 **DoD (adapted per decision — no paid provider available):** the `leaderboard run` command completes across ≥2 free models (gemini native + OpenRouter free) on the same recorded dataset and emits a comparable leaderboard; `costUsd` is 0 for free models and wired for future paid keys.
+
+## M9 agent paper-mode E2E (10,000 real Indodax candles)
+
+Runs the `apps/indodax-agent` paper-mode loop over the committed real Indodax dataset (`datasets/realistic/btc_idr_15m_2026`, 15m, real prices) with recorded decisions:
+
+- ✓ Completes without crashing; **no NaN anywhere** in trades, PnL, balances, or outcomes
+- ✓ No duplicate clientOrderIds across the whole run
+- ✓ Deterministic: two runs on the same dataset + decisions produce identical trades, PnL, and checksum
+- ✓ The run survives signal files mid-run (pause → resume → shutdown) and flushes state on the clean exit
 
 ## Definition of done (applies to every milestone in ROADMAP.md)
 

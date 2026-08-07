@@ -75,20 +75,11 @@
     }
   ],
   "pnlDeltaMean": -0.7807217164523104,
-  "pnlDeltaCI95": [
-    -2.342165149356931,
-    0
-  ],
+  "pnlDeltaCI95": [-2.342165149356931, 0],
   "winRateDeltaMean": 0,
-  "winRateDeltaCI95": [
-    0,
-    0
-  ],
+  "winRateDeltaCI95": [0, 0],
   "maxDdDeltaMean": 0.0000758755362631564,
-  "maxDdDeltaCI95": [
-    0,
-    0.00022762660878946917
-  ],
+  "maxDdDeltaCI95": [0, 0.00022762660878946917],
   "directional": {
     "controlCorrect": 0,
     "controlTotal": 0,

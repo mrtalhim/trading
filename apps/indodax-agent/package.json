@@ -1,0 +1,30 @@
+{
+  "name": "@trading/indodax-agent",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "indodax-agent": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@trading/backtest": "workspace:*",
+    "@trading/core": "workspace:*",
+    "@trading/datasets": "workspace:*",
+    "@trading/exchanges": "workspace:*",
+    "@trading/features": "workspace:*",
+    "@trading/guardrails": "workspace:*",
+    "@trading/risk": "workspace:*",
+    "zod": "^3.23.0"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

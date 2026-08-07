@@ -74,7 +74,7 @@ Read these before making a change that touches the choices below. If a decision 
 
 ### ADR-012: Indodax historical candles come from `/tradingview/history_v2`, not trade aggregation
 
-**Decision**: When building the realistic Indodax dataset (M9), fetch historical OHLC directly from Indodax's public, TradingView-compatible endpoint `/tradingview/history_v2?from={timestamp}&symbol={pair_id}&tf={minutes}&to={timestamp}` (e.g. `symbol=btc_idr`, `tf` = timeframe in minutes). Do **not** reconstruct candles from raw `/api/trades`.
+**Decision**: When building the realistic Indodax dataset (M9), fetch historical OHLC directly from Indodax's public, TradingView-compatible endpoint `/tradingview/history_v2?from={timestamp}&symbol={symbol}&tf={minutes}&to={timestamp}` (e.g. `symbol=BTCIDR`, `tf` = timeframe in minutes). The `symbol` is the **uppercase** pair id returned by `/tradingview/search_v2` (`id`, e.g. `BTCIDR`) — not the lowercase `base_currency_traded_currency` form (`.btc_idr` / `btc_idr` do **not** resolve). `tf` is accepted as a number or string; bars come back as `{Time (epoch seconds), Open, High, Low, Close, Volume (string)}` and `[]` means no data in range. Do **not** reconstruct candles from raw `/api/trades`.
 
 **Reason**: The endpoint already returns OHLC for a given pair/timeframe/date range. Rebuilding candles from trade prints (aggregation logic, gap handling in trade data, volume-weighting) is materially more work for the same result. An earlier analysis incorrectly concluded Indodax had no public candlestick endpoint (it only noted `/api/ticker`, `/api/trades`, `/api/depth`); the TradingView history endpoint was missed. This corrects that conclusion.
 
