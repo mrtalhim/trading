@@ -60,6 +60,18 @@ Read these before making a change that touches the choices below. If a decision 
 
 **Alternatives considered**: Guardrails inside `apps/indodax-agent` — rejected because it forces cross-app imports and would duplicate capital-protecting logic across apps.
 
+### ADR-013: Pattern-detection in `packages/indicators`, delivered through the LLM prompt, gated by a pre-committed A/B
+
+**Decision**: Candlestick pattern detection (single/double/triple-candle detectors plus structural trend/support-resistance) lives inside `packages/indicators` as pure, versioned, deterministic modules — not in a separate `packages/patterns` package. It reaches the trading loop only through the LLM prompt (`buildPatternBlock` → `contextOptionsFor`), selected via a `--context` flag threaded through `backtest --record` and `benchmark probe`/`run`. It is **not** a FeatureRow/FeaturePipeline column, and the FeatureRow schema, feature checksums, and golden replay baselines are untouched.
+
+**Reason** (this intentionally corrects the earlier addendum plan which proposed a separate `packages/patterns`): the work is candle-geometry only — no new inputs to a feature pipeline, no matrix shape, no per-window compositional versioning — so it belongs with the other self-implemented deterministic indicators. Housing it in `indicators` (ADR-008) keeps one home for determinism, versioning and known-implementation guarantees. Keeping it prompt-only keeps the FeaturePipeline and its checksums untouched and makes the change trivially reversible, which matters because the value is unproven.
+
+**A/B experiment, not permanent architecture (per PROJECT_CHARTER simplicity rule)**: the pattern block ships behind `--context=patterns` next to a candle-only `baseline` and `indicators`-only variant. `benchmark abtest` does a paired block-bootstrap of control vs treatment PnL/win-rate/max-drawdown with pre-committed verdict thresholds (ROADMAP.md M3.5 decision rule). Win rate is the pre-committed primary metric; one pass per model, no re-runs against tweaked definitions unless an effect is already statistically credible.
+
+**Alternatives considered**:
+- Separate `packages/patterns` (original addendum plan) — the user corrected this; rejected above.
+- Feature-pipeline integration (pattern booleans as FeatureRow columns) — rejected: changes feature checksums and triggers a golden baseline rebuild, plus it bakes unproven signal into the deterministic scoring path where it cannot be A/B-tested cheaply.
+
 ### ADR-012: Indodax historical candles come from `/tradingview/history_v2`, not trade aggregation
 
 **Decision**: When building the realistic Indodax dataset (M9), fetch historical OHLC directly from Indodax's public, TradingView-compatible endpoint `/tradingview/history_v2?from={timestamp}&symbol={pair_id}&tf={minutes}&to={timestamp}` (e.g. `symbol=btc_idr`, `tf` = timeframe in minutes). Do **not** reconstruct candles from raw `/api/trades`.

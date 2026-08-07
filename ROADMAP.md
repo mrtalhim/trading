@@ -28,6 +28,40 @@ Rule for the agent: work on the **current milestone only**. Do not touch package
 **Do not touch**: LLM, exchanges, Android.
 **Done when**: feature pipeline produces deterministic output for golden datasets, version metadata propagates correctly.
 
+## M3.5 — Candlestick Pattern Context + A/B experiment (current)
+
+**Build**: candlestick pattern detection inside `packages/indicators` (single/double/triple-candle detectors + structural trend/support-resistance; `detectPatternContext` returns a structured `PatternContext` with a hashed `patternVersion`). Optional LLM context arms in `packages/llm`: `baseline` (candles-only, byte-identical to today), `indicators` (+ indicator block), `patterns` (+ indicator + pattern block), selected via a `--context` flag threaded through `backtest --record` and `benchmark probe`/`run`. Paired A/B harness `benchmark abtest`: block-wise per-arm scores → paired deltas → seeded paired-bootstrap 95% CIs + directional McNemar.
+
+This is an experiment with a pre-decided keep/discard rule, not a permanent architecture change until it earns one (per PROJECT_CHARTER.md simplicity rule).
+
+**Do not touch**: real exchange integration (Indodax live), live trading, `packages/features` FeatureRow schema / feature checksums / golden replay baselines.
+
+**Procedure** (TDD.md acceptance criteria must pass as tests first):
+
+1. Implement detectors + TDD suite (done once `pnpm check` is green).
+2. Pick the M8 cost-adjusted leaderboard leaders (deepseek-v4-flash, gemini-2.5-flash, nemotron-3-nano).
+3. For each model: two fresh probe passes on the same dataset slice — `--context=indicators` then `--context=patterns` (real LLM calls; replay cannot substitute, the prompt itself changes). Target ≥300 matched decision points per arm per model on `datasets/realistic/btc_15m_2024`.
+4. `benchmark abtest --control <probes-indicators.jsonl> --treatment <probes-patterns.jsonl> --dataset datasets/realistic/btc_15m_2024` per model.
+5. Report per model: pnlDelta / winRateDelta / maxDdDelta means + CIs, directional accuracy, McNemar p. Primary metric: win rate (pre-committed). One pass per model — no re-running with tweaked pattern definitions until something looks significant (that's p-hacking).
+
+**Decision rule**:
+
+- Keep patterns permanently only if at least one model shows a statistically credible improvement (CI excludes zero) larger than the added token cost justifies.
+- Keep as an off-by-default configurable option if results are mixed/model-dependent.
+- Discard if no model shows a credible improvement.
+
+**Cost**: ~2 arms × 3 models × ~400 decisions ≈ 2,400 calls; pattern block adds ~100–150 tokens/call; expected < $5–10 total on the M8 model mix.
+
+**Done when**: all TDD.md "M3.5" acceptance criteria pass as tests, the A/B runs complete, and the verdict (keep / configurable / discard) is recorded below.
+
+**Verdict (recorded 2026-08-07)**: **Keep as an off-by-default configurable option** — results were mixed/model-dependent, so patterns are not promoted to default and are not discarded. Reports: `apps/benchmark/ab-results/ab-{deepseekv4,gemini,nemotron}.json` (paired block bootstrap, block=100, 490 matched samples/arm).
+
+- **deepseekv4**: pnl delta mean **+90.5**, CI **[8.9, 204.2]** (excludes 0) · win-rate delta **+0.063**, CI [-0.05, 0.24] (includes 0, primary metric not credible) · directional accuracy 47.8% → 52.9% · McNemar p = 0.064 (14/5 discordant). Best case for keeping.
+- **nemotron**: pnl delta **+8.0**, CI [-29.6, 49.7] · win-rate delta +0.243, CI [-0.13, 0.65] · directional 49.5% → 46.0% · McNemar p = 0.761. Neutral.
+- **gemini**: not informative — 487/490 probes in the indicators arm and 487/490 in the patterns arm failed JSON parsing (`validJson: false`, mapped to hold), so the paired comparison has ~0 effective action pairs. Flagged for follow-up (parser tolerance, not pattern-related).
+
+Per the pre-committed rule: no model showed a credible win-rate improvement (primary metric), so patterns are **not** made the default context; because deepseekv4 showed a credible secondary-metric (PnL) improvement and no model was harmed, the `--context=patterns` option stays available off-by-default. Real spend ≈ **$0.09** (deepseek only; nemotron free tier; gemini paid API, uncounted).
+
 ## M4 — Validation + Guardrails + Property tests ✅
 
 **Build**: validation layer (already delivered in `packages/core` — see M1/M2), full guardrail rule set as `packages/guardrails` (a pure, deterministic module operating on mock inputs, reused by `apps/backtest` and `apps/benchmark` per ADR-011), property tests against guardrails.

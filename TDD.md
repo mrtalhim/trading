@@ -93,6 +93,64 @@ Consumes a `Dataset` and produces an enriched candle stream (one `FeatureRow` pe
 - ✓ Generic engine supports the M1 indicators (`rsi`, `atr`, `adx`, `ema`, `sma`, `vwap`) plus derived examples (`return`, `logReturn`); `return`/`logReturn` are `NaN` at index 0
 - ✓ Invalid configs are rejected: unknown indicator, duplicate feature name, or empty spec list
 
+## Candlestick pattern context (`packages/indicators`) — M3.5
+
+Deterministic, pure candle-geometry detectors. Every detector analyses the last candle of the window it receives.
+
+**Single-candle detectors (doji, hammer, invertedHammer, hangingMan, shootingStar, marubozu)**
+
+- ✓ Fires on a known textbook example
+- ✓ Does not fire on a clearly non-matching candle
+- ✓ Returns `false` (never throws) when there is insufficient candle history
+- ✓ Hammer/hangingMan and invertedHammer/shootingStar are distinguished by preceding trend direction: the same shape never fires both
+
+**Double-candle detectors (bullishEngulfing, bearishEngulfing, piercingLine, darkCloudCover, bullishHarami, bearishHarami)**
+
+- ✓ Fires on a known textbook pair, does not fire on a non-matching pair
+- ✓ Returns `false` (never throws) with fewer than two candles
+- ✓ Engulfing uses strict containment, so identical/doji pairs never fire both directions
+
+**Triple-candle detectors (morningStar, eveningStar, threeWhiteSoldiers, threeBlackCrows)**
+
+- ✓ Fires on a known textbook example, does not fire on a non-matching example
+- ✓ Returns `false` (never throws) with fewer than three candles
+
+**Structural (`trendStructure`, `nearSupport`, `nearResistance`)**
+
+- ✓ Correctly classifies synthetic monotonic uptrend / downtrend / ranging series
+- ✓ Structure classified over the window preceding the last candle
+- ✓ Support/resistance proximity uses a configurable `proximityThreshold`, tested at the boundary (float-stable)
+- ✓ Returns `ranging` / `false` (never throws) below `minStructureCandles`
+
+**Versioning + determinism**
+
+- ✓ Same candles, same options → byte-identical `PatternContext` including `patternVersion`
+- ✓ `patternVersion` is a 16-char hex string and changes when any detector version constant or option changes
+- ✓ All booleans; no NaN anywhere; empty input handled
+
+**Property test (100k random windows)**
+
+- ✓ Never produces two mutually-exclusive patterns as both true (engulfing pair, piercing/darkCloud, harami pair, star pairs, soldiers/crows, doji/marubozu, hammer/hangingMan)
+- ✓ Never crashes for any window length 0–40
+- ✓ No NaN or non-boolean anywhere in the output
+
+## LLM context arms (`packages/llm`) — M3.5
+
+- ✓ `--context=baseline` renders byte-identical prompts to the pre-M3.5 output (record/probe unchanged)
+- ✓ `--context=indicators` appends an indicator block (RSI/ATR/ADX/EMA/SMA/VWAP final values) to the user prompt; insufficient history renders `n/a`, never crashes
+- ✓ `--context=patterns` appends both the indicator block and a structural pattern block (`trendStructure`, `nearSupport/nearResistance`, per-class booleans, `patternVersion`)
+- ✓ Renders are deterministic for identical input
+- ✓ Context flags are threaded through `backtest --record` and `benchmark probe`/`benchmark run`; invalid `--context` values are rejected
+
+## Paired A/B analysis (`apps/benchmark abtest`) — M3.5
+
+- ✓ Computes one block delta per contiguous block: control PnL / win rate / max drawdown, treatment values, and delta
+- ✓ Paired bootstrap (seeded) yields deterministic mean + 95% CI per metric for the same inputs
+- ✓ Matched-decision directional accuracy per arm (next candle moves in the action's direction)
+- ✓ Exact two-sided binomial McNemar on discordant pairs (treatment-wrong/control-right and vice versa)
+- ✓ Invalid probes mapped to `{action: hold, confidence: 0}` before scoring, matching the M8 score path
+- Offline-only: no network in the analyzer or its tests
+
 ## Validation (`packages/core`)
 
 - ✓ Accepts a well-formed `{action, confidence}` JSON object
