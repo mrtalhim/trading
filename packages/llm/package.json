@@ -12,7 +12,8 @@
     }
   },
   "dependencies": {
-    "@trading/core": "workspace:*"
+    "@trading/core": "workspace:*",
+    "@trading/indicators": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b"

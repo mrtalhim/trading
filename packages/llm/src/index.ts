@@ -11,7 +11,9 @@ export {
   buildDecisionSystemPrompt,
   buildDecisionUserPrompt,
   buildDecisionContext,
+  contextOptionsFor,
 } from './contexts.js';
+export type { ContextRenderOptions, ContextKind } from './contexts.js';
 export { BaseDecisionEngine } from './base-engine.js';
 export { OpenAICompatibleEngine } from './openai-compatible.js';
 export { AnthropicEngine } from './anthropic.js';
