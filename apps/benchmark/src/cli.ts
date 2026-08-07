@@ -2,11 +2,13 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { JsonlLoader } from '@trading/datasets';
 import { loadDecisions } from '@trading/backtest';
+import type { ContextKind } from '@trading/llm';
 import { createEngineFromPreset, PRESETS } from '@trading/llm';
 import type { ProbeResult } from './probe.js';
 import { probeDecisions } from './probe.js';
 import { scoreProbes, type ScoreResult } from './score.js';
 import { buildLeaderboard } from './leaderboard.js';
+import { forPairedBlocks } from './paired.js';
 
 interface CliArgs {
   command: string;
@@ -14,6 +16,9 @@ interface CliArgs {
   decisions?: string;
   probes?: string;
   scores?: string;
+  control?: string;
+  treatment?: string;
+  blockSize: number;
   out?: string;
   outDir?: string;
   preset?: string;
@@ -23,6 +28,7 @@ interface CliArgs {
   lookback: number;
   repeats: number;
   requestDelayMs: number;
+  context: ContextKind;
   cash: number;
   fraction: number;
   feeRate: number;
@@ -30,7 +36,16 @@ interface CliArgs {
   timeout: number;
 }
 
-function parseArgs(argv: string[]): CliArgs {
+const CONTEXT_KINDS: ContextKind[] = ['baseline', 'indicators', 'patterns'];
+
+export function parseContext(value: string): ContextKind {
+  if (!CONTEXT_KINDS.includes(value as ContextKind)) {
+    throw new Error(`invalid --context '${value}'. expected one of: ${CONTEXT_KINDS.join(', ')}`);
+  }
+  return value as ContextKind;
+}
+
+export function parseArgs(argv: string[]): CliArgs {
   const args: Record<string, string> = {};
   let command = '';
   for (let i = 0; i < argv.length; i++) {
@@ -54,6 +69,9 @@ function parseArgs(argv: string[]): CliArgs {
     decisions: args.decisions,
     probes: args.probes,
     scores: args.scores,
+    control: args.control,
+    treatment: args.treatment,
+    blockSize: Number(args['block-size'] ?? 100),
     out: args.out,
     outDir: args['out-dir'],
     preset: args.preset,
@@ -63,6 +81,7 @@ function parseArgs(argv: string[]): CliArgs {
     lookback: Number(args.lookback ?? 20),
     repeats: Number(args.repeats ?? 3),
     requestDelayMs: Number(args['request-delay'] ?? 0),
+    context: parseContext(args.context ?? 'baseline'),
     cash: Number(args.cash ?? 10000),
     fraction: Number(args.fraction ?? 0.1),
     feeRate: Number(args['fee-rate'] ?? 0),
@@ -116,6 +135,7 @@ async function cmdProbe(a: CliArgs): Promise<void> {
       lookback: a.lookback,
       repeats: a.repeats,
       requestDelayMs: a.requestDelayMs,
+      context: a.context,
     },
   );
 
@@ -191,6 +211,7 @@ async function cmdRun(a: CliArgs): Promise<void> {
       lookback: a.lookback,
       repeats: a.repeats,
       requestDelayMs: a.requestDelayMs,
+      context: a.context,
     });
     allProbes.push(...probes);
     await writeFile(
@@ -217,6 +238,28 @@ async function cmdRun(a: CliArgs): Promise<void> {
   process.stdout.write('leaderboard written to ' + a.outDir + '/leaderboard.json\n');
 }
 
+async function cmdAbtest(a: CliArgs): Promise<void> {
+  if (!a.dataset) throw new Error('--dataset <dir> is required');
+  if (!a.control) throw new Error('--control <probes.jsonl> is required');
+  if (!a.treatment) throw new Error('--treatment <probes.jsonl> is required');
+
+  const dataset = new JsonlLoader(a.dataset);
+  const control = await loadProbes(a.control);
+  const treatment = await loadProbes(a.treatment);
+
+  const result = await forPairedBlocks(dataset, control, treatment, {
+    blockSize: a.blockSize,
+    symbol: a.symbol,
+  });
+
+  const out = a.out ?? 'paired-ab.json';
+  await ensureDir(out);
+  await writeFile(out, JSON.stringify(result, null, 2) + '\n');
+  process.stdout.write(
+    `paired A/B → ${out} (${result.sampleSizePerArm} matched, CI pnl ${result.pnlDeltaCI95.join('..')})\n`,
+  );
+}
+
 export async function runBenchmarkCli(argv: string[] = process.argv.slice(2)): Promise<void> {
   const a = parseArgs(argv);
   switch (a.command) {
@@ -228,9 +271,11 @@ export async function runBenchmarkCli(argv: string[] = process.argv.slice(2)): P
       return cmdLeaderboard(a);
     case 'run':
       return cmdRun(a);
+    case 'abtest':
+      return cmdAbtest(a);
     default:
       throw new Error(
-        `unknown command: '${a.command}'. expected one of: probe, score, leaderboard, run`,
+        `unknown command: '${a.command}'. expected one of: probe, score, leaderboard, run, abtest`,
       );
   }
 }

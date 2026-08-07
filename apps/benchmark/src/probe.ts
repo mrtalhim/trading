@@ -1,7 +1,7 @@
 import type { Dataset } from '@trading/datasets';
 import { ReplayLoader } from '@trading/datasets';
-import type { DecisionEngine, DecisionContext, CostModel, Usage } from '@trading/llm';
-import { buildDecisionContext } from '@trading/llm';
+import type { ContextKind, DecisionEngine, DecisionContext, CostModel, Usage } from '@trading/llm';
+import { buildDecisionContext, contextOptionsFor } from '@trading/llm';
 import type { Action } from '@trading/core';
 
 export interface ProbeOptions {
@@ -9,6 +9,7 @@ export interface ProbeOptions {
   lookback: number;
   repeats: number;
   requestDelayMs: number;
+  context: ContextKind;
 }
 
 export interface ProbeResult {
@@ -35,6 +36,7 @@ const DEFAULT_OPTIONS: ProbeOptions = {
   lookback: 20,
   repeats: 1,
   requestDelayMs: 0,
+  context: 'baseline',
 };
 
 export async function probeDecisions(
@@ -55,7 +57,10 @@ export async function probeDecisions(
     }
     const lookbackStart = Math.max(0, idx - opts.lookback + 1);
     const window = candles.slice(lookbackStart, idx + 1);
-    const ctx = { ...buildDecisionContext(opts.symbol, window), timestamp: ts };
+    const ctx = {
+      ...buildDecisionContext(opts.symbol, window, contextOptionsFor(opts.context)),
+      timestamp: ts,
+    };
 
     for (let r = 0; r < opts.repeats; r++) {
       results.push(await probeOnce(engine, ctx, ts));
