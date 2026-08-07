@@ -1,0 +1,103 @@
+{
+  "blockSize": 100,
+  "sampleSizePerArm": 490,
+  "matchedSamples": 490,
+  "deltas": [
+    {
+      "block": 0,
+      "matchedSamples": 100,
+      "controlPnl": 0,
+      "treatmentPnl": 0,
+      "pnlDelta": 0,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0,
+      "treatmentMaxDd": 0,
+      "maxDdDelta": 0,
+      "changedDecisions": 0
+    },
+    {
+      "block": 1,
+      "matchedSamples": 100,
+      "controlPnl": 0,
+      "treatmentPnl": 0,
+      "pnlDelta": 0,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0,
+      "treatmentMaxDd": 0,
+      "maxDdDelta": 0,
+      "changedDecisions": 0
+    },
+    {
+      "block": 2,
+      "matchedSamples": 100,
+      "controlPnl": 0,
+      "treatmentPnl": 0,
+      "pnlDelta": 0,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0,
+      "treatmentMaxDd": 0,
+      "maxDdDelta": 0,
+      "changedDecisions": 0
+    },
+    {
+      "block": 3,
+      "matchedSamples": 100,
+      "controlPnl": 0,
+      "treatmentPnl": -3.9036085822615516,
+      "pnlDelta": -3.9036085822615516,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0,
+      "treatmentMaxDd": 0.000379377681315782,
+      "maxDdDelta": 0.000379377681315782,
+      "changedDecisions": 3
+    },
+    {
+      "block": 4,
+      "matchedSamples": 90,
+      "controlPnl": 0,
+      "treatmentPnl": 0,
+      "pnlDelta": 0,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0,
+      "treatmentMaxDd": 0,
+      "maxDdDelta": 0,
+      "changedDecisions": 0
+    }
+  ],
+  "pnlDeltaMean": -0.7807217164523104,
+  "pnlDeltaCI95": [
+    -2.342165149356931,
+    0
+  ],
+  "winRateDeltaMean": 0,
+  "winRateDeltaCI95": [
+    0,
+    0
+  ],
+  "maxDdDeltaMean": 0.0000758755362631564,
+  "maxDdDeltaCI95": [
+    0,
+    0.00022762660878946917
+  ],
+  "directional": {
+    "controlCorrect": 0,
+    "controlTotal": 0,
+    "treatmentCorrect": 2,
+    "treatmentTotal": 3
+  },
+  "directionalMcNemar": {
+    "treatmentWins": 0,
+    "controlWins": 0,
+    "pValueTwoSided": 1
+  }
+}

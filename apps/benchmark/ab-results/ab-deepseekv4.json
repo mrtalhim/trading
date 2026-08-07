@@ -1,0 +1,103 @@
+{
+  "blockSize": 100,
+  "sampleSizePerArm": 490,
+  "matchedSamples": 490,
+  "deltas": [
+    {
+      "block": 0,
+      "matchedSamples": 100,
+      "controlPnl": -14.698305385904886,
+      "treatmentPnl": -27.735751069885747,
+      "pnlDelta": -13.037445683980861,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0.011829178817003306,
+      "treatmentMaxDd": 0.01185049501135982,
+      "maxDdDelta": 0.000021316194356513912,
+      "changedDecisions": 46
+    },
+    {
+      "block": 1,
+      "matchedSamples": 100,
+      "controlPnl": 2.5482509882736144,
+      "treatmentPnl": 72.02797704300869,
+      "pnlDelta": 69.47972605473508,
+      "controlWinRate": 0.2,
+      "treatmentWinRate": 0.6,
+      "winRateDelta": 0.39999999999999997,
+      "controlMaxDd": 0.017942836697704377,
+      "treatmentMaxDd": 0.02638264071661016,
+      "maxDdDelta": 0.008439804018905782,
+      "changedDecisions": 56
+    },
+    {
+      "block": 2,
+      "matchedSamples": 100,
+      "controlPnl": -58.97664721121986,
+      "treatmentPnl": -52.4448274266,
+      "pnlDelta": 6.531819784619863,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0.008526771041895535,
+      "treatmentMaxDd": 0.01528605355323018,
+      "maxDdDelta": 0.006759282511334645,
+      "changedDecisions": 65
+    },
+    {
+      "block": 3,
+      "matchedSamples": 100,
+      "controlPnl": -96.25454213415131,
+      "treatmentPnl": -19.414600062405658,
+      "pnlDelta": 76.83994207174565,
+      "controlWinRate": 0.3333333333333333,
+      "treatmentWinRate": 0.25,
+      "winRateDelta": -0.08333333333333331,
+      "controlMaxDd": 0.01085292385213397,
+      "treatmentMaxDd": 0.019666121614696636,
+      "maxDdDelta": 0.008813197762562666,
+      "changedDecisions": 51
+    },
+    {
+      "block": 4,
+      "matchedSamples": 90,
+      "controlPnl": -719.0039778935096,
+      "treatmentPnl": -406.4143134424667,
+      "pnlDelta": 312.5896644510429,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0.021099795683259762,
+      "treatmentMaxDd": 0.016646047232248436,
+      "maxDdDelta": -0.004453748451011326,
+      "changedDecisions": 41
+    }
+  ],
+  "pnlDeltaMean": 90.48074133563253,
+  "pnlDeltaCI95": [
+    8.851884960884586,
+    204.2281510418988
+  ],
+  "winRateDeltaMean": 0.06333333333333332,
+  "winRateDeltaCI95": [
+    -0.04999999999999999,
+    0.24
+  ],
+  "maxDdDeltaMean": 0.003915970407229656,
+  "maxDdDeltaCI95": [
+    -0.0009800250279543364,
+    0.008253057214854309
+  ],
+  "directional": {
+    "controlCorrect": 110,
+    "controlTotal": 230,
+    "treatmentCorrect": 155,
+    "treatmentTotal": 293
+  },
+  "directionalMcNemar": {
+    "treatmentWins": 14,
+    "controlWins": 5,
+    "pValueTwoSided": 0.063568115234375
+  }
+}
