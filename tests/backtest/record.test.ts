@@ -31,9 +31,7 @@ function fakeDataset(candles: Candle[]): Dataset {
   };
 }
 
-function fakeEngine(
-  responses: Decision[],
-): DecisionEngine & { calls: DecisionContext[] } {
+function fakeEngine(responses: Decision[]): DecisionEngine & { calls: DecisionContext[] } {
   let idx = 0;
   const calls: DecisionContext[] = [];
   return {
@@ -121,6 +119,34 @@ describe('recordDecisions', () => {
       requestDelayMs: 0,
     });
     expect(decisions[0].timestamp).toBe(baseCandles[0].timestamp);
+  });
+
+  it('renders indicator and pattern blocks when context=patterns', async () => {
+    const ds = fakeDataset(baseCandles);
+    const engine = fakeEngine([{ action: 'hold', confidence: 0.5 }]);
+    await recordDecisions(ds, engine, {
+      sampleEvery: 3,
+      symbol: 'BTC/USDT',
+      requestDelayMs: 0,
+      context: 'patterns',
+    });
+    const calls = engine.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[0].userPrompt).toContain('Indicators:');
+    expect(calls[0].userPrompt).toContain('Patterns:');
+  });
+
+  it('keeps baseline prompts free of blocks', async () => {
+    const ds = fakeDataset(baseCandles);
+    const engine = fakeEngine([{ action: 'hold', confidence: 0.5 }]);
+    await recordDecisions(ds, engine, {
+      sampleEvery: 3,
+      symbol: 'BTC/USDT',
+      requestDelayMs: 0,
+      context: 'baseline',
+    });
+    expect(engine.calls[0].userPrompt).not.toContain('Indicators:');
+    expect(engine.calls[0].userPrompt).not.toContain('Patterns:');
   });
 });
 
