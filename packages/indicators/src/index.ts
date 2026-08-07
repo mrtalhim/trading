@@ -5,3 +5,13 @@ export { atr } from './atr.js';
 export { adx } from './adx.js';
 export { vwap } from './vwap.js';
 export { pipelineVersion } from './utils.js';
+export { detectPatternContext, buildPatternVersion } from './pattern-context.js';
+export type {
+  PatternContext,
+  PatternOptions,
+  TrendStructure,
+  StructuralContext,
+  SinglePatterns,
+  DoublePatterns,
+  TriplePatterns,
+} from './pattern-types.js';
