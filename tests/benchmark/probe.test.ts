@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DecisionParseError } from '../../packages/llm/src/index.js';
+import {
+  DecisionError,
+  DecisionParseError,
+  DecisionTimeoutError,
+} from '../../packages/llm/src/index.js';
 import { computeCostUsd, probeDecisions, probeStats } from '../../apps/benchmark/src/index.js';
 import { memoryDataset, makeCandles, FakeEngine } from './helpers.js';
 
@@ -36,9 +40,45 @@ describe('probeDecisions', () => {
     expect(results).toHaveLength(2);
     for (const r of results) {
       expect(r.validJson).toBe(false);
+      expect(r.errorKind).toBe('malformed_json');
       expect(r.action).toBeNull();
       expect(r.confidence).toBeNull();
     }
+  });
+
+  it('records a distinct errorKind per failure class', async () => {
+    const cases: Array<[Error, string]> = [
+      [new DecisionTimeoutError('fake:model', 5000), 'timeout'],
+      [new DecisionError('fake:model', 'HTTP 429: too many requests'), 'rate_limited'],
+      [new DecisionError('fake:model', 'HTTP 503: unavailable'), 'http_error'],
+      [new TypeError('fetch failed'), 'network_error'],
+      [new Error('something unexpected'), 'fatal'],
+    ];
+    for (const [err, expected] of cases) {
+      const engine = new FakeEngine('fake:model', () => {
+        throw err;
+      });
+      const results = await probeDecisions(dataset, engine, [ts[0]], {
+        lookback: 5,
+        repeats: 1,
+        requestDelayMs: 0,
+      });
+      expect(results[0].validJson).toBe(false);
+      expect(results[0].errorKind).toBe(expected);
+      expect(results[0].errorMessage).toContain(String(err.message.slice(0, 10)));
+    }
+  });
+
+  it('records errorKind null on success and omits errorMessage', async () => {
+    const engine = FakeEngine.valid('fake:model', { action: 'long', confidence: 0.7 });
+    const results = await probeDecisions(dataset, engine, [ts[0]], {
+      lookback: 5,
+      repeats: 1,
+      requestDelayMs: 0,
+    });
+    expect(results[0].validJson).toBe(true);
+    expect(results[0].errorKind).toBeNull();
+    expect(results[0].errorMessage).toBeUndefined();
   });
 
   it('builds the same context window as the record path', async () => {

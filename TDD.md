@@ -266,13 +266,14 @@ M8. Runs the same recorded contexts (from M6/M7 datasets) through multiple provi
 **Probe**
 
 - ✓ `probeDecisions` returns exactly one `ProbeResult` per (recorded timestamp × repeat), with the context window derived from the dataset at that timestamp (same `lookback` as record)
-- ✓ Valid engine response → `validJson: true`, action and confidence recorded, no crash
-- ✓ Malformed response (engine throws `DecisionError`) → `validJson: false`, action/confidence null, no crash
+- ✓ Valid engine response → `validJson: true`, `errorKind: null`, action and confidence recorded, no crash
+- ✓ Malformed response (engine throws `DecisionError`) → `validJson: false`, `errorKind: 'malformed_json'`, action/confidence null, no crash
+- ✓ Failed calls record a distinct `errorKind` from `classifyLlmError` (`timeout` / `rate_limited` / `malformed_json` / `http_error` / `network_error` / `fatal`) plus a truncated `errorMessage`, so rate-limits, timeouts and malformed output are not conflated
 - ✓ `latencyMs` recorded (≥ 0) per request
 - ✓ `costUsd` recorded per request (0 for free engines)
 - ✓ `repeats: N` yields N results per timestamp (used by the consistency test)
 - ✓ Unknown timestamp in the dataset → throws a clear error, no silent skip
-- ✓ Deterministic except `latencyMs`: two runs with the same fake engine and dataset produce identical `validJson`/action/confidence/costUsd
+- ✓ Deterministic except `latencyMs`: two runs with the same fake engine and dataset produce identical `validJson`/`errorKind`/action/confidence/costUsd
 
 **Consistency test**
 

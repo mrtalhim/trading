@@ -67,7 +67,54 @@ export async function safeDecide(engine: DecisionEngine, ctx: DecisionContext): 
   try {
     return await engine.decide(ctx);
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(
+      err instanceof Error ? `[${classifyLlmError(err)}] ${err.message}` : `[fatal] ${String(err)}`,
+    );
     return { action: 'hold', confidence: 0 };
   }
+}
+
+export type LlmErrorKind =
+  'timeout' | 'rate_limited' | 'malformed_json' | 'http_error' | 'network_error' | 'fatal';
+
+const NETWORK_PATTERN =
+  /request failed|fetch failed|ECONNRESET|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|socket hang up/i;
+
+/**
+ * Maps any thrown error to a stable, inspectable failure class so callers can
+ * distinguish "back off and retry" from "this model/prompt is actually broken".
+ *
+ * Matches on both `instanceof` and `name`, because apps consume the built
+ * `dist` copy of these classes while tests may throw instances of the matching
+ * `src` copy — `instanceof` alone is unreliable across the two module copies,
+ * but the constructor-set `name` is identical in both.
+ *
+ * Order matters: DecisionTimeoutError/DecisionParseError subclass DecisionError,
+ * so the specific classes are tested first.
+ */
+export function classifyLlmError(err: unknown): LlmErrorKind {
+  if (
+    err instanceof DecisionTimeoutError ||
+    (err instanceof Error && err.name === 'DecisionTimeoutError')
+  )
+    return 'timeout';
+  if (
+    err instanceof DecisionParseError ||
+    (err instanceof Error && err.name === 'DecisionParseError')
+  )
+    return 'malformed_json';
+  if (err instanceof DecisionError || (err instanceof Error && err.name === 'DecisionError')) {
+    const reason =
+      err instanceof DecisionError ? err.reason : err instanceof Error ? err.message : '';
+    if (reason.includes('HTTP 429')) return 'rate_limited';
+    if (reason.match(/HTTP \d{3}/)) return 'http_error';
+    if (reason.includes('timeout after')) return 'timeout';
+    if (NETWORK_PATTERN.test(reason)) return 'network_error';
+    return 'fatal';
+  }
+  if (err instanceof Error) {
+    if (err.name === 'AbortError' || /abort/i.test(err.message)) return 'timeout';
+    if (NETWORK_PATTERN.test(err.message)) return 'network_error';
+  }
+  return 'fatal';
 }

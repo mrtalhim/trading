@@ -1,7 +1,8 @@
 import type { Dataset } from '@trading/datasets';
 import { ReplayLoader } from '@trading/datasets';
 import type { ContextKind, DecisionEngine, DecisionContext, CostModel, Usage } from '@trading/llm';
-import { buildDecisionContext, contextOptionsFor } from '@trading/llm';
+import type { LlmErrorKind } from '@trading/llm';
+import { buildDecisionContext, classifyLlmError, contextOptionsFor } from '@trading/llm';
 import type { Action } from '@trading/core';
 
 export interface ProbeOptions {
@@ -16,6 +17,10 @@ export interface ProbeResult {
   timestamp: number;
   provider: string;
   validJson: boolean;
+  /** null on success; one of the LlmErrorKind classes on failure. */
+  errorKind: LlmErrorKind | null;
+  /** Short provider-side error detail, present only on failure. */
+  errorMessage?: string;
   action: Action | null;
   confidence: number | null;
   latencyMs: number;
@@ -87,6 +92,7 @@ async function probeOnce(
       timestamp,
       provider: engine.provider,
       validJson: true,
+      errorKind: null,
       action: decision.action,
       confidence: decision.confidence,
       latencyMs,
@@ -99,6 +105,8 @@ async function probeOnce(
         timestamp,
         provider: engine.provider,
         validJson: false,
+        errorKind: classifyLlmError(err),
+        errorMessage: err.message.slice(0, 200),
         action: null,
         confidence: null,
         latencyMs,
