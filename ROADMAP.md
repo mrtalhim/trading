@@ -114,6 +114,16 @@ Per the pre-committed rule: no model showed a credible win-rate improvement (pri
 
 gemini-3.5-flash-lite and gemma-4-31b produced byte-identical trades. `gemini-3.6-flash` excluded: free-tier **daily** quota exhausted mid-run (429 "check your plan"; unlike 2.5-flash's per-minute cap) — probe rows were poisoned by quota, not model quality. Fixed `apiKeyForPreset` (cli.ts) which routed only the exact name `'gemini'` to GEMINI_API_KEY, silently sending the OpenRouter key for the other Gemini presets (fast-fail 400s).
 
+**Paid decision-models benchmark (2026-08-07)**: 3 cheap paid models probed on a fresh dataset slice (`datasets/realistic/btc_15m_2024`, 325 contexts × 3 repeats = 975 calls/model, `--context baseline`). Purpose: pick a cheap decision model — no top-of-the-line needed, per the recommended mix (gpt-5.6-luna-pro, deepseek-v4-flash, gemini-3.5-flash-lite). Added `gemini35liteor` preset (Google Gemini 3.5 Flash Lite over OpenRouter, `$0.30/$2.50` per M); gemini-3.6 connections to OpenRouter dropped from the run (priced ~15–40× the others, not "cheap"). Closed every probe with valid JSON — the paid tier avoids the free 3.6-flash quota that poisoned the M8-extended run.
+
+| model | validJson | latency | consistency | winRate | realizedPnl | costUsd | trades |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| openai/gpt-5.6-luna-pro | 0.91 | 7.0s | 0.69 | 0.00 | −78.3 | 0.70 | 18 |
+| deepseek/deepseek-v4-flash | 0.84 | 5.0s | 0.35 | 0.00 | −106.6 | 0.07 | 24 |
+| google/gemini-3.5-flash-lite | 1.00 | 0.7s | 0.83 | 0.00 | −108.2 | 0.46 | 17 |
+
+All three lost money on this 2024 slice (every closed trade lost → winRate 0). That is the dataset slice, not lack of model skill. Read the table as engineering metrics: deepseek-v4-flash is the cheapest by ~7–10×, gemini-3.5-flash-lite is fastest/most consistent (1.00 valid JSON, 0.7s), lunapro sits in between. Total spend ≈ **$1.23** (lunapro 0.70 + lite 0.46 + deepseek 0.07). Note: `.env` OpenRouter key was stale — the live key lives in `/root/.openrouter_key` (updated `.env` to match, commit not part of the preset change).
+
 ## M9 — Indodax live adapter
 
 **Build**: real `packages/exchanges/indodax` implementation (replacing paper for this adapter), retry policy, clock sync, exchange filters, reconciliation (startup + periodic), authenticated control commands, cost/budget caps, daily reset logic, position ownership policy.

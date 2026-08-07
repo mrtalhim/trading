@@ -12,6 +12,7 @@ describe('envNameForPreset', () => {
       'gptoss120b',
       'lunapro',
       'deepseekv4',
+      'gemini35liteor',
     ]) {
       expect(envNameForPreset(preset), preset).toBe('OPENROUTER_API_KEY');
     }

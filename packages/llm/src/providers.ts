@@ -85,6 +85,13 @@ export const PRESETS: Record<string, Preset> = {
     kind: 'gemini',
     model: 'gemini-3.5-flash-lite',
   },
+  gemini35liteor: {
+    name: 'Google Gemini 3.5 Flash Lite (OpenRouter)',
+    kind: 'openai',
+    model: 'google/gemini-3.5-flash-lite',
+    baseURL: 'https://openrouter.ai/api/v1',
+    costModel: { promptPerMillionUsd: 0.3, completionPerMillionUsd: 2.5 },
+  },
 };
 
 export function createEngineFromPreset(

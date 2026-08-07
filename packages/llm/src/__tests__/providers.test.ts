@@ -8,6 +8,7 @@ const PAID = {
   gptoss120b: { promptPerMillionUsd: 0.037, completionPerMillionUsd: 0.17 },
   lunapro: { promptPerMillionUsd: 0.1, completionPerMillionUsd: 0.6 },
   deepseekv4: { promptPerMillionUsd: 0.0882, completionPerMillionUsd: 0.1764 },
+  gemini35liteor: { promptPerMillionUsd: 0.3, completionPerMillionUsd: 2.5 },
 } as const;
 
 const EXPECTED_PRESETS: Array<[string, string, 'openai' | 'gemini', string, CostModel | null]> = [
@@ -21,6 +22,13 @@ const EXPECTED_PRESETS: Array<[string, string, 'openai' | 'gemini', string, Cost
   ['deepseekv4', 'DeepSeek V4 Flash', 'openai', 'deepseek/deepseek-v4-flash', PAID.deepseekv4],
   ['gemini36', 'Google Gemini 3.6 Flash', 'gemini', 'gemini-3.6-flash', null],
   ['gemini35lite', 'Google Gemini 3.5 Flash Lite', 'gemini', 'gemini-3.5-flash-lite', null],
+  [
+    'gemini35liteor',
+    'Google Gemini 3.5 Flash Lite (OpenRouter)',
+    'openai',
+    'google/gemini-3.5-flash-lite',
+    PAID.gemini35liteor,
+  ],
 ];
 
 describe('PRESETS', () => {
