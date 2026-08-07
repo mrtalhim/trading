@@ -8,3 +8,4 @@ export {
 } from './engine.js';
 export { loadDecisions, type RecordedDecision } from './decisions.js';
 export { runBacktestCli } from './cli.js';
+export { parseArgs, parseContext } from './cli.js';

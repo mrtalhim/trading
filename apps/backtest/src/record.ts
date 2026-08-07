@@ -1,8 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 import type { Dataset } from '@trading/datasets';
 import { ReplayLoader } from '@trading/datasets';
-import type { DecisionEngine } from '@trading/llm';
-import { safeDecide, buildDecisionContext } from '@trading/llm';
+import type { ContextKind, DecisionEngine } from '@trading/llm';
+import { contextOptionsFor, safeDecide, buildDecisionContext } from '@trading/llm';
 import type { RecordedDecision } from './decisions.js';
 
 export interface RecordOptions {
@@ -10,6 +10,7 @@ export interface RecordOptions {
   sampleEvery: number;
   symbol: string;
   requestDelayMs: number;
+  context: ContextKind;
 }
 
 const DEFAULT_OPTIONS: RecordOptions = {
@@ -17,6 +18,7 @@ const DEFAULT_OPTIONS: RecordOptions = {
   sampleEvery: 1,
   symbol: 'BTC/USDT',
   requestDelayMs: 3500,
+  context: 'baseline',
 };
 
 export async function recordDecisions(
@@ -36,7 +38,7 @@ export async function recordDecisions(
 
     const lookbackStart = Math.max(0, i - opts.lookback + 1);
     const recentCandles = allCandles.slice(lookbackStart, i + 1);
-    const ctx = buildDecisionContext(opts.symbol, recentCandles);
+    const ctx = buildDecisionContext(opts.symbol, recentCandles, contextOptionsFor(opts.context));
 
     const decision = await safeDecide(engine, {
       ...ctx,

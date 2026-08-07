@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import { BacktestEngine, loadDataset, type BacktestConfig } from './engine.js';
 import { loadDecisions } from './decisions.js';
 import { recordDecisions, writeDecisions } from './record.js';
+import type { ContextKind } from '@trading/llm';
 import { createDecisionEngine, createEngineFromPreset } from '@trading/llm';
 
 interface CliArgs {
@@ -24,9 +25,19 @@ interface CliArgs {
   sampleEvery: number;
   lookback: number;
   timeout: number;
+  context: ContextKind;
 }
 
-function parseArgs(argv: string[]): CliArgs {
+const CONTEXT_KINDS: ContextKind[] = ['baseline', 'indicators', 'patterns'];
+
+export function parseContext(value: string): ContextKind {
+  if (!CONTEXT_KINDS.includes(value as ContextKind)) {
+    throw new Error(`invalid --context '${value}'. expected one of: ${CONTEXT_KINDS.join(', ')}`);
+  }
+  return value as ContextKind;
+}
+
+export function parseArgs(argv: string[]): CliArgs {
   const args: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -67,6 +78,7 @@ function parseArgs(argv: string[]): CliArgs {
     sampleEvery: Number(args.sampleEvery ?? 1),
     lookback: Number(args.lookback ?? 20),
     timeout: Number(args.timeout ?? 10_000),
+    context: parseContext(args.context ?? 'baseline'),
   };
 }
 
@@ -91,6 +103,7 @@ export async function runBacktestCli(argv: string[] = process.argv.slice(2)): Pr
       symbol: a.symbol,
       sampleEvery: a.sampleEvery,
       lookback: a.lookback,
+      context: a.context,
     });
 
     const outPath = a.out ?? a.dataset.replace(/\//g, '-') + '-decisions.jsonl';
