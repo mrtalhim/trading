@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import type { Dataset } from '@trading/datasets';
 import { ReplayLoader } from '@trading/datasets';
-import type { ContextKind, DecisionEngine } from '@trading/llm';
+import type { ContextKind, DecisionEngine, Usage } from '@trading/llm';
 import {
   contextOptionsFor,
   safeDecide,
@@ -85,7 +85,7 @@ function sleep(ms: number): Promise<void> {
 
 interface DecisionWithLatency {
   decision: { action: 'long' | 'short' | 'hold'; confidence: number };
-  usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null;
+  usage: Usage | null;
 }
 
 async function decideWithLatency(

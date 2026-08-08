@@ -5,6 +5,9 @@ export interface RecordedDecisionUsage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  cachedTokens?: number;
+  cacheCreationTokens?: number;
+  staticTokenEstimate?: number;
 }
 
 export interface RecordedDecision {
@@ -83,6 +86,11 @@ function coerceDecision(value: unknown): RecordedDecision {
         completionTokens: u.completionTokens,
         totalTokens: u.totalTokens,
       };
+      for (const key of ['cachedTokens', 'cacheCreationTokens', 'staticTokenEstimate'] as const) {
+        if (isFiniteNumber(u[key])) {
+          decision.usage[key] = u[key];
+        }
+      }
     }
   }
   return decision;

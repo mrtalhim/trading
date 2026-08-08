@@ -1,7 +1,7 @@
 export type { DecisionContext, DecisionEngine } from './interfaces.js';
 export type { Usage, CostModel, DecisionWithUsage } from './interfaces.js';
 export type { LlmErrorKind } from './interfaces.js';
-export { ZERO_COST_MODEL, classifyLlmError } from './interfaces.js';
+export { ZERO_COST_MODEL, classifyLlmError, estimateTokens } from './interfaces.js';
 export {
   DecisionError,
   DecisionTimeoutError,

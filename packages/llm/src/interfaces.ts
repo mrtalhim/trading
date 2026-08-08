@@ -42,6 +42,24 @@ export interface Usage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  /** Tokens served from the provider's prompt cache on this call, when reported. */
+  cachedTokens?: number;
+  /** Tokens written to the provider's cache on this call, when reported. */
+  cacheCreationTokens?: number;
+  /**
+   * Estimated tokens in the stable prefix (system prompt). Deterministic chars/4
+   * proxy, not a provider count; used to size the cacheable share of a prompt.
+   */
+  staticTokenEstimate?: number;
+}
+
+/**
+ * Deterministic, dependency-free proxy for prompt token counts. Real tokenizers
+ * vary by model/family; a chars/4 rule is accurate enough to reason about the
+ * cacheable fraction of a prompt and to compare prompt shapes across runs.
+ */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
 }
 
 export interface CostModel {

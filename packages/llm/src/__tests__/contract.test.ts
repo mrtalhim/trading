@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { DecisionEngine, DecisionContext } from '../interfaces.js';
-import { safeDecide, DecisionParseError, DecisionTimeoutError } from '../interfaces.js';
+import {
+  safeDecide,
+  DecisionParseError,
+  DecisionTimeoutError,
+  estimateTokens,
+} from '../interfaces.js';
 import { OpenAICompatibleEngine } from '../openai-compatible.js';
 import { AnthropicEngine } from '../anthropic.js';
 import { GeminiEngine } from '../gemini.js';
@@ -216,12 +221,23 @@ describe('usage tracking', () => {
       new Response(
         JSON.stringify({
           choices: [{ message: { content: HOLD } }],
-          usage: { prompt_tokens: 120, completion_tokens: 30, total_tokens: 150 },
+          usage: {
+            prompt_tokens: 120,
+            completion_tokens: 30,
+            total_tokens: 150,
+            prompt_tokens_details: { cached_tokens: 20 },
+          },
         }),
       );
     const res = await openAIEngine(fetchImpl).decideWithUsage!(ctx);
     expect(res.decision).toEqual({ action: 'hold', confidence: 0.5 });
-    expect(res.usage).toEqual({ promptTokens: 120, completionTokens: 30, totalTokens: 150 });
+    expect(res.usage).toEqual({
+      promptTokens: 120,
+      completionTokens: 30,
+      totalTokens: 150,
+      cachedTokens: 20,
+      staticTokenEstimate: estimateTokens(ctx.systemPrompt),
+    });
   });
 
   it('gemini parses usageMetadata from the response', async () => {
@@ -229,7 +245,12 @@ describe('usage tracking', () => {
       new Response(
         JSON.stringify({
           candidates: [{ content: { parts: [{ text: HOLD }] } }],
-          usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 25, totalTokenCount: 125 },
+          usageMetadata: {
+            promptTokenCount: 100,
+            candidatesTokenCount: 25,
+            totalTokenCount: 125,
+            cachedContentTokenCount: 60,
+          },
         }),
       );
     const engine = new GeminiEngine({
@@ -240,7 +261,13 @@ describe('usage tracking', () => {
       maxRetries: 0,
     });
     const res = await engine.decideWithUsage!(ctx);
-    expect(res.usage).toEqual({ promptTokens: 100, completionTokens: 25, totalTokens: 125 });
+    expect(res.usage).toEqual({
+      promptTokens: 100,
+      completionTokens: 25,
+      totalTokens: 125,
+      cachedTokens: 60,
+      staticTokenEstimate: estimateTokens(ctx.systemPrompt),
+    });
   });
 
   it('anthropic parses usage from the response', async () => {
@@ -248,7 +275,12 @@ describe('usage tracking', () => {
       new Response(
         JSON.stringify({
           content: [{ type: 'text', text: HOLD }],
-          usage: { input_tokens: 80, output_tokens: 20 },
+          usage: {
+            input_tokens: 80,
+            output_tokens: 20,
+            cache_read_input_tokens: 50,
+            cache_creation_input_tokens: 30,
+          },
         }),
       );
     const engine = new AnthropicEngine({
@@ -259,7 +291,14 @@ describe('usage tracking', () => {
       maxRetries: 0,
     });
     const res = await engine.decideWithUsage!(ctx);
-    expect(res.usage).toEqual({ promptTokens: 80, completionTokens: 20, totalTokens: 100 });
+    expect(res.usage).toEqual({
+      promptTokens: 80,
+      completionTokens: 20,
+      totalTokens: 100,
+      cachedTokens: 50,
+      cacheCreationTokens: 30,
+      staticTokenEstimate: estimateTokens(ctx.systemPrompt),
+    });
   });
 
   it('returns usage null when the response omits usage', async () => {

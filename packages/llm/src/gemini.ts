@@ -65,6 +65,7 @@ export class GeminiEngine extends BaseDecisionEngine {
         promptTokenCount?: number;
         candidatesTokenCount?: number;
         totalTokenCount?: number;
+        cachedContentTokenCount?: number;
       };
     };
     const u = parsed.usageMetadata;
@@ -75,6 +76,7 @@ export class GeminiEngine extends BaseDecisionEngine {
       promptTokens: u.promptTokenCount,
       completionTokens: u.candidatesTokenCount,
       totalTokens: u.totalTokenCount ?? u.promptTokenCount + u.candidatesTokenCount,
+      cachedTokens: u.cachedContentTokenCount,
     };
   }
 }

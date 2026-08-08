@@ -64,7 +64,12 @@ export class AnthropicEngine extends BaseDecisionEngine {
 
   protected extractUsage(body: string): Usage | null {
     const parsed = JSON.parse(body) as {
-      usage?: { input_tokens?: number; output_tokens?: number };
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_read_input_tokens?: number;
+        cache_creation_input_tokens?: number;
+      };
     };
     const u = parsed.usage;
     if (!u || u.input_tokens === undefined || u.output_tokens === undefined) {
@@ -74,6 +79,8 @@ export class AnthropicEngine extends BaseDecisionEngine {
       promptTokens: u.input_tokens,
       completionTokens: u.output_tokens,
       totalTokens: u.input_tokens + u.output_tokens,
+      cachedTokens: u.cache_read_input_tokens,
+      cacheCreationTokens: u.cache_creation_input_tokens,
     };
   }
 }
