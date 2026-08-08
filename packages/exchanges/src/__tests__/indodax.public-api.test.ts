@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   IndodaxPublicApiClient,
+  normalizeHistorySymbol,
+  normalizePairSymbol,
   parseHistoryBars,
   parsePairInfo,
   type FetchFn,
@@ -8,7 +10,13 @@ import {
   type SearchSymbol,
 } from '../indodax/public-api.js';
 
-const RETRY_POLICY = { maxRetries: 2, baseDelayMs: 1, maxDelayMs: 2 };
+const RETRY_POLICY = {
+  maxRetries: 2,
+  baseDelayMs: 1,
+  maxDelayMs: 2,
+  timeoutMs: 0,
+  minIntervalMs: 0,
+};
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -131,6 +139,90 @@ describe('IndodaxPublicApiClient (injected fetch, no network)', () => {
     });
     await expect(client.searchSymbols('BTC')).rejects.toThrow();
     expect(calls).toBe(RETRY_POLICY.maxRetries + 1);
+  });
+});
+
+describe('symbol normalization (surface id inconsistency)', () => {
+  it('normalizes every spelling onto the uppercase history symbol BTCIDR', () => {
+    expect(normalizeHistorySymbol('BTCIDR')).toBe('BTCIDR');
+    expect(normalizeHistorySymbol('btcidr')).toBe('BTCIDR');
+    expect(normalizeHistorySymbol('BTC/IDR')).toBe('BTCIDR');
+    expect(normalizeHistorySymbol('btc_idr')).toBe('BTCIDR');
+  });
+
+  it('normalizes every spelling onto the lowercase REST pair id btcidr', () => {
+    expect(normalizePairSymbol('BTCIDR')).toBe('btcidr');
+    expect(normalizePairSymbol('BTC/IDR')).toBe('btcidr');
+    expect(normalizePairSymbol('btc_idr')).toBe('btcidr');
+  });
+
+  it('fetchHistory sends the uppercase symbol regardless of input spelling', async () => {
+    const seen: string[] = [];
+    const client = clientWith(async (url) => {
+      seen.push(url);
+      return jsonResponse([]);
+    });
+    await client.fetchHistory({ symbol: 'btc_idr', tf: 15, from: 1, to: 2 });
+    expect(seen[0]).toContain('symbol=BTCIDR');
+  });
+
+  it('fetchPairInfo sends the lowercase pair id regardless of input spelling', async () => {
+    const seen: string[] = [];
+    const client = clientWith(async (url) => {
+      seen.push(url);
+      return jsonResponse({
+        id: 'btcidr',
+        ticker_id: 'btc_idr',
+        symbol: 'BTCIDR',
+        base_currency: 'idr',
+        traded_currency: 'btc',
+        trade_min_base_currency: 10000,
+        trade_min_traded_currency: 0.00000871,
+        trade_fee_percent: 0.2,
+        is_maintenance: 0,
+      });
+    });
+    await client.fetchPairInfo('BTC/IDR');
+    expect(seen[0]).toContain('pair=btcidr');
+  });
+});
+
+describe('retry policy hardening (timeout, throttle)', () => {
+  it('aborts a hanging request after timeoutMs and retries until exhausted', async () => {
+    let attempts = 0;
+    const client = new IndodaxPublicApiClient(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          attempts += 1;
+          if (!init?.signal) {
+            reject(new TypeError('expected an abort signal'));
+            return;
+          }
+          init.signal.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')),
+          );
+        }),
+      { maxRetries: 2, baseDelayMs: 1, maxDelayMs: 2, timeoutMs: 40, minIntervalMs: 0 },
+      async () => {},
+    );
+    const started = Date.now();
+    await expect(
+      client.fetchHistory({ symbol: 'btcidr', tf: 15, from: 1, to: 2 }),
+    ).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(2_000);
+    expect(attempts).toBe(3);
+  });
+
+  it('enforces a minimum interval between successive requests', async () => {
+    const client = new IndodaxPublicApiClient(
+      async () => jsonResponse([]),
+      { maxRetries: 0, baseDelayMs: 1, maxDelayMs: 2, timeoutMs: 0, minIntervalMs: 60 },
+      sleep,
+    );
+    const started = Date.now();
+    await client.fetchHistory({ symbol: 'BTCIDR', tf: 15, from: 1, to: 2 });
+    await client.fetchHistory({ symbol: 'BTCIDR', tf: 15, from: 3, to: 4 });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(60);
   });
 });
 

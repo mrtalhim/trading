@@ -5,7 +5,7 @@
  * so tests never touch the network — they reuse the same `fetch` shape Node
  * 18+ and browsers provide.
  */
-export type FetchFn = (url: string | URL | Request) => Promise<Response>;
+export type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 export interface HistoryV2Bar {
     Time: number;
     Open: number;
@@ -55,8 +55,25 @@ export interface RetryPolicy {
     maxRetries: number;
     baseDelayMs: number;
     maxDelayMs: number;
+    /**
+     * Per-attempt hard timeout, 0 disables. Indodax can hang tens of seconds on
+     * some paths (e.g. unknown symbols), so every request needs a ceiling.
+     */
+    timeoutMs: number;
+    /** Minimum gap between successive request attempts (client-side throttle). */
+    minIntervalMs: number;
 }
 export declare const historyRetryPolicy: RetryPolicy;
+/**
+ * Indodax id handling is inconsistent across surfaces: the REST pair endpoints
+ * (`tickers`, `depth`, `trades`, `pairs_v2`, `search_v2`) take the lowercase
+ * id (`btcidr`) while `history_v2` requires the uppercase ticker (`BTCIDR`).
+ * These helpers normalize any input spelling (`BTCIDR`, `btcidr`, `BTC/IDR`)
+ * onto the required form; the underscore form (`btc_idr`) is rejected by the
+ * exchange and is deliberately stripped as well.
+ */
+export declare function normalizeHistorySymbol(symbol: string): string;
+export declare function normalizePairSymbol(symbol: string): string;
 export declare function parseHistoryBars(raw: unknown, window?: {
     from: number;
     to: number;
@@ -74,6 +91,7 @@ export declare class IndodaxPublicApiClient {
     private readonly fetchFn;
     constructor(fetchFn?: FetchFn, policy?: RetryPolicy, sleep?: (ms: number) => Promise<void>, base?: string);
     private request;
+    private requestInit;
     private backoff;
     fetchHistory(req: HistoryRequest): Promise<HistoryBar[]>;
     searchSymbols(query: string): Promise<SearchSymbol[]>;

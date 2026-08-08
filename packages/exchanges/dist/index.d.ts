@@ -13,7 +13,7 @@ export { PaperExchange, createPaperExchange } from './paper/paper-exchange.js';
 export type { PaperExchangeConfig } from './paper/paper-exchange.js';
 export { IndodaxExchange, createIndodaxExchange } from './indodax/indodax-exchange.js';
 export { type CcxtLike, type CcxtLikeTicker, type CcxtLikeBalance, type CcxtLikeOrder, type CcxtErrorKind, type RetryPolicy, type SleepFn, mapTicker, mapBalance, mapOrder, classifyCcxtError, CcxtFatalError, defaultRetryPolicy, executeWithRetry, executeCreateWithRecovery, } from './indodax/mapping.js';
-export { IndodaxPublicApiClient, parseHistoryBars, parsePairInfo, historyRetryPolicy, PublicApiError, } from './indodax/public-api.js';
+export { IndodaxPublicApiClient, normalizeHistorySymbol, normalizePairSymbol, parseHistoryBars, parsePairInfo, historyRetryPolicy, PublicApiError, } from './indodax/public-api.js';
 export type { FetchFn, HistoryV2Bar, HistoryBar, HistoryRequest, PairInfo, SearchSymbol, RetryPolicy as PublicRetryPolicy, } from './indodax/public-api.js';
 export { ClockSync } from './indodax/clock.js';
 export type { FetchServerTime, NowFn } from './indodax/clock.js';

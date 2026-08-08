@@ -6,7 +6,7 @@
  * 18+ and browsers provide.
  */
 
-export type FetchFn = (url: string | URL | Request) => Promise<Response>;
+export type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export interface HistoryV2Bar {
   Time: number;
@@ -62,13 +62,38 @@ export interface RetryPolicy {
   maxRetries: number;
   baseDelayMs: number;
   maxDelayMs: number;
+  /**
+   * Per-attempt hard timeout, 0 disables. Indodax can hang tens of seconds on
+   * some paths (e.g. unknown symbols), so every request needs a ceiling.
+   */
+  timeoutMs: number;
+  /** Minimum gap between successive request attempts (client-side throttle). */
+  minIntervalMs: number;
 }
 
 export const historyRetryPolicy: RetryPolicy = {
   maxRetries: 3,
   baseDelayMs: 250,
   maxDelayMs: 8000,
+  timeoutMs: 15_000,
+  minIntervalMs: 150,
 };
+
+/**
+ * Indodax id handling is inconsistent across surfaces: the REST pair endpoints
+ * (`tickers`, `depth`, `trades`, `pairs_v2`, `search_v2`) take the lowercase
+ * id (`btcidr`) while `history_v2` requires the uppercase ticker (`BTCIDR`).
+ * These helpers normalize any input spelling (`BTCIDR`, `btcidr`, `BTC/IDR`)
+ * onto the required form; the underscore form (`btc_idr`) is rejected by the
+ * exchange and is deliberately stripped as well.
+ */
+export function normalizeHistorySymbol(symbol: string): string {
+  return symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+export function normalizePairSymbol(symbol: string): string {
+  return normalizeHistorySymbol(symbol).toLowerCase();
+}
 
 const BASE_URL = 'https://indodax.com';
 const HISTORY_PATH = '/tradingview/history_v2';
@@ -154,8 +179,9 @@ export class IndodaxPublicApiClient {
 
     let lastErr: unknown = null;
     for (let attempt = 0; attempt <= this.policy.maxRetries; attempt += 1) {
+      const started = Date.now();
       try {
-        const res = await this.fetchFn(url);
+        const res = await this.fetchFn(url, this.requestInit());
         if (!res.ok) {
           if (isTransient(res) && attempt < this.policy.maxRetries) {
             await this.sleep(this.backoff(attempt));
@@ -171,9 +197,23 @@ export class IndodaxPublicApiClient {
           continue;
         }
         throw err;
+      } finally {
+        if (this.policy.minIntervalMs > 0) {
+          const elapsed = Date.now() - started;
+          const wait = this.policy.minIntervalMs - elapsed;
+          if (wait > 0) await this.sleep(wait);
+        }
       }
     }
     throw lastErr;
+  }
+
+  private requestInit(): RequestInit | undefined {
+    if (this.policy.timeoutMs <= 0) return undefined;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.policy.timeoutMs);
+    controller.signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
+    return { signal: controller.signal };
   }
 
   private backoff(attempt: number): number {
@@ -183,7 +223,7 @@ export class IndodaxPublicApiClient {
 
   fetchHistory(req: HistoryRequest): Promise<HistoryBar[]> {
     return this.request<unknown>(HISTORY_PATH, {
-      symbol: req.symbol,
+      symbol: normalizeHistorySymbol(req.symbol),
       tf: String(req.tf),
       from: req.from,
       to: req.to,
@@ -195,6 +235,8 @@ export class IndodaxPublicApiClient {
   }
 
   fetchPairInfo(symbol: string): Promise<PairInfo> {
-    return this.request<Record<string, unknown>>(PAIRS_PATH, { pair: symbol }).then(parsePairInfo);
+    return this.request<Record<string, unknown>>(PAIRS_PATH, {
+      pair: normalizePairSymbol(symbol),
+    }).then(parsePairInfo);
   }
 }

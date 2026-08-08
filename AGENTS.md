@@ -55,3 +55,19 @@ Don't start implementing until that's done. Silent assumptions are the main sour
 ## If you're an agent picking up mid-project
 
 Check CI status and the last milestone marked done in ROADMAP.md before assuming where the project is. Don't trust an in-progress branch's state over what CI says actually passes.
+
+## Indodax exchange behaviors (verified live 2026-08, do not "fix" by assumption)
+
+- **Two id spellings, one per surface**: REST pair endpoints (`pairs_v2`, `tickers`, `depth/{id}`, `trades/{id}`, `search_v2`) take the lowercase id (`btcidr`); `tradingview/history_v2` requires the uppercase ticker (`BTCIDR`). The underscore form `btc_idr` is **rejected** (`invalid_pair`). Use `normalizePairSymbol()` / `normalizeHistorySymbol()` in `packages/exchanges/src/indodax/public-api.ts` — never hand-roll id transforms.
+- **`history_v2` `tf` is minutes-only.** `1440` and `D` return `400 invalid TimeFrame`; verified `15` and `60` work. Longest safe window for datasets: 4h (`240`). No 1D candles through this endpoint.
+- **Unknown symbols hang ~30 s** on `history_v2` (then return `[]`). Resolve ids via `pairs_v2`/`search_v2` first; never probe with an unvalidated symbol. `search_v2` only matches near-complete ids (`btcidr` works, `btc` → errmsg).
+- **Latency is jittery**: 90 ms–23 s per public request observed, no hard rate-limit seen at 20-call bursts. Every request must carry a timeout — the client's `RetryPolicy` (`.timeoutMs`, `.minIntervalMs`, retry-on-429/5xx/abort) is the enforcement point. Default `historyRetryPolicy` = 3 retries, 15 s timeout, 150 ms min interval.
+- **No websocket.** All surfaces are polling; the agent's design (15 m candle loop, signal-file control) is built around that.
+- **Clock** comes from `/api/server_time` (ms epoch); first call ~2-3 s, so `ClockSync` samples repeatedly.
+- **Private API is `/tapi`** (nonce + signature; ccxt handles it). Verified live: `fetchBalance`/`getInfo`. ccxt `indodax` does **not** implement fetchOrders history (only `fetchOpenOrders`/`fetchOrder`), deposits, or withdrawals; tapi gets no client-order-id — ownership tracking (`ownership.ts`) maps by our own stored ids, reconciled against `trade_history`/`open_orders`.
+- **`tickers` vs `ticker/{pair}`**: `/api/tickers` returns the whole market (~200 pairs, strings); it is the cheap broadcast source. `trades/{id}` gives public fills (`tid` as string).
+
+## When touching live-API code
+
+- Never hit the exchange from unit tests — inject `fetch` / `fetchFn` (public client) or ccxt (private). Live smoke tests are opt-in scripts, never part of `vitest run`.
+- Treat key material as `.env`-only (gitignored). Rotate, don't print: a temp probe script that reads the secret must be deleted after use.

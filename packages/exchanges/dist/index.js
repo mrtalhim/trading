@@ -11,7 +11,7 @@
 export { PaperExchange, createPaperExchange } from './paper/paper-exchange.js';
 export { IndodaxExchange, createIndodaxExchange } from './indodax/indodax-exchange.js';
 export { mapTicker, mapBalance, mapOrder, classifyCcxtError, CcxtFatalError, defaultRetryPolicy, executeWithRetry, executeCreateWithRecovery, } from './indodax/mapping.js';
-export { IndodaxPublicApiClient, parseHistoryBars, parsePairInfo, historyRetryPolicy, PublicApiError, } from './indodax/public-api.js';
+export { IndodaxPublicApiClient, normalizeHistorySymbol, normalizePairSymbol, parseHistoryBars, parsePairInfo, historyRetryPolicy, PublicApiError, } from './indodax/public-api.js';
 export { ClockSync } from './indodax/clock.js';
 export { BudgetTracker, WIB_OFFSET_MS } from './indodax/budget.js';
 export { buildClientOrderId, isOwnedOrder } from './indodax/ownership.js';

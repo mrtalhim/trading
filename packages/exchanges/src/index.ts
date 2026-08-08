@@ -32,6 +32,8 @@ export {
 } from './indodax/mapping.js';
 export {
   IndodaxPublicApiClient,
+  normalizeHistorySymbol,
+  normalizePairSymbol,
   parseHistoryBars,
   parsePairInfo,
   historyRetryPolicy,
