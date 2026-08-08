@@ -72,7 +72,7 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
         prompt_tokens?: number;
         completion_tokens?: number;
         total_tokens?: number;
-        prompt_tokens_details?: { cached_tokens?: number };
+        prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
       };
     };
     const u = parsed.usage;
@@ -84,6 +84,7 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
       completionTokens: u.completion_tokens,
       totalTokens: u.total_tokens ?? u.prompt_tokens + u.completion_tokens,
       cachedTokens: u.prompt_tokens_details?.cached_tokens,
+      cacheCreationTokens: u.prompt_tokens_details?.cache_write_tokens,
     };
   }
 }

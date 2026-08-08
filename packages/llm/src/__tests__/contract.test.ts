@@ -225,7 +225,7 @@ describe('usage tracking', () => {
             prompt_tokens: 120,
             completion_tokens: 30,
             total_tokens: 150,
-            prompt_tokens_details: { cached_tokens: 20 },
+            prompt_tokens_details: { cached_tokens: 20, cache_write_tokens: 15 },
           },
         }),
       );
@@ -236,8 +236,28 @@ describe('usage tracking', () => {
       completionTokens: 30,
       totalTokens: 150,
       cachedTokens: 20,
+      cacheCreationTokens: 15,
       staticTokenEstimate: estimateTokens(ctx.systemPrompt),
     });
+  });
+
+  it('openai-compatible leaves cache fields undefined when details are absent', async () => {
+    const fetchImpl = async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: HOLD } }],
+          usage: { prompt_tokens: 120, completion_tokens: 30, total_tokens: 150 },
+        }),
+      );
+    const res = await openAIEngine(fetchImpl).decideWithUsage!(ctx);
+    expect(res.usage).toEqual({
+      promptTokens: 120,
+      completionTokens: 30,
+      totalTokens: 150,
+      staticTokenEstimate: estimateTokens(ctx.systemPrompt),
+    });
+    expect(res.usage!.cachedTokens).toBeUndefined();
+    expect(res.usage!.cacheCreationTokens).toBeUndefined();
   });
 
   it('gemini parses usageMetadata from the response', async () => {
