@@ -67,15 +67,15 @@ async function main() {
   }
 
   const md = [];
-  md.push(`# Risk/regime sweep report — ${GRID.symbol} slices (free models)\n`);
+  md.push(`# Risk/regime sweep report — ${GRID.symbol} slices\n`);
   md.push(`Generated ${new Date().toISOString()}\n`);
   md.push('Grid: minConfidence {0.5..0.9} × fraction {0.1} × stops {off, on} × stopMult {1,2,3} × tpMult {2,3}\n');
   md.push(
-    `Setup: initialQuote ${GRID.initialQuote.toLocaleString('en-US')}, feeRate ${GRID.feeRate} per fill ` +
+    `Setup: initialQuote ${GRID.initialQuote.toLocaleString('en-US')} IDR, feeRate ${GRID.feeRate} per fill ` +
       `(${(GRID.feeRate * 200).toFixed(1)}% round-trip, Indodax standard ~0.3%/side), ` +
-      `minVolume ${GRID.minVolume} (guardrail active: rejects candles below that volume floor — kept small for IDR because its volume column is in BTC units with median ~0.1, vs ~373 on the 2024 slice).\n`,
+      `minVolume ${GRID.minVolume} (guardrail active: rejects candles below that volume floor — set per dataset since volume is in base-coin units that differ by asset).\n`,
   );
-  md.push('Metrics: realizedPnl, winRate (closing trades), trades, maxDrawdown.\n');
+  md.push('Metrics: realizedPnl (IDR, on initialQuote), winRate (closing trades), trades, maxDrawdown.\n');
   md.push('"Best" rows are the highest-PnL variant with at least ' + MIN_TRADES + ' closing trades.\n');
 
   for (const r of rows) {
@@ -114,11 +114,11 @@ async function main() {
   md.push(`
 ## Caveats
 
-- **Small trade counts.** No-stops configs trade 7–24 times per slice/model; a 100% win rate over 7 trades (e.g. w1/gemma4) is within pure-luck range and should not anchor conclusions. Treat per-cell numbers as noisy; only cross-slice patterns are meaningful.
+- **Small trade counts.** No-stops configs trade 7–24 times per slice/model; a 100% win rate over 7 trades (e.g. w1) is within pure-luck range and should not anchor conclusions. Treat per-cell numbers as noisy; only cross-slice patterns are meaningful.
 - **No configuration wins consistently across w0–w3.** PnL swings strongly positive to strongly negative by slice for both models under both stop regimes. This is the real result: fixed stop/TP multipliers do not rescue a signal whose directional accuracy is near coin-flip (M3.5 measured 47.8–52.9%). "Some periods trend, some chop" — a single fixed exit policy has no universal answer.
 - **Fee sensitivity.** At 0.6% round trip, high-trade-count configs are the most fee-exposed; a higher fee (e.g. Indodax VIP tiers or maker/taker asymmetry) can flip which cells look best.
-- **minVolume floor differs per dataset scale.** IDR volume is in BTC units (median ~0.1); the 2024 slice median is ~373. A floor suitable for one scale rejects everything on the other — hence the per-run minVolume override.
-- **Free-tier noise.** A small number of calls failed (network/timeout/429) and were recorded as holds; visible as decision rows without a \`usage\` field. gemini was excluded entirely when its free-tier daily quota exhausted mid-run.
+- **minVolume floor differs per dataset scale.** Volume is in base-coin units, and medians differ widely by asset (BTC/IDR ~0.1, ETH/IDR ~1.1, SOL/IDR ~24 per 15m candle). A floor suitable for one scale rejects everything on the other — hence the per-run minVolume override.
+- **Call failures recorded as holds.** A small number of calls failed (network/timeout/429) and were recorded as holds; visible as decision rows without a \`usage\` field.
 `);
 
   await writeFile(OUT, md.join('\n') + '\n');

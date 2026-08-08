@@ -124,6 +124,16 @@ gemini-3.5-flash-lite and gemma-4-31b produced byte-identical trades. `gemini-3.
 
 All three lost money on this 2024 slice (every closed trade lost → winRate 0). That is the dataset slice, not lack of model skill. Read the table as engineering metrics: deepseek-v4-flash is the cheapest by ~7–10×, gemini-3.5-flash-lite is fastest/most consistent (1.00 valid JSON, 0.7s), lunapro sits in between. Total spend ≈ **$1.23** (lunapro 0.70 + lite 0.46 + deepseek 0.07). Note: `.env` OpenRouter key was stale — the live key lives in `/root/.openrouter_key` (updated `.env` to match, commit not part of the preset change).
 
+**Risk-regime sweeps (2026-08-08)**: cross-asset stop/TP sweep over recorded decisions — BTC/IDR free models (gemma4, nemotronultra) plus ETH/IDR and SOL/IDR paid deepseek-v4 (808 decisions total, ~$0.10). New real datasets `datasets/realistic/{eth,sol}_idr_15m_2026` (10020 15m candles each, Apr 26–Aug 8 2026); reports `datasets/realistic/slices/{ethidr2026,solidr2026}/sweep-report.md`. Grid: minConfidence {0.5..0.9} × fraction 0.1 × stops {off, on} × stopMult {1,2,3} × tpMult {2,3}, feeRate 0.3%/side, minVolume per-asset in base coin (BTC 0.02, ETH 0.2, SOL 5).
+
+Conclusion (pattern-level, not per-cell — each slice window is only ~26 days / 2505 candles, and trade counts are 7–24):
+
+- **Stops-on is positive in 16/16 windows** across 3 models and 3 assets; no-stops PnL swings sign by slice on every asset. The deterministic ATR stop/TP exits — not the model's calls — are what produce the consistent (modest) positive expectancy. This is the strongest cross-asset result so far and directly validates the non-negotiable that the LLM outputs `{action, confidence}` only, with sizing/stops/TP as deterministic risk-engine code.
+- **Directional accuracy is still near coin-flip** (win rates 0.4–0.6; the 1.0 cells are 1–10-trade noise, per the "best" variant only when ≥3 closing trades). Paid deepseek-v4 changes **reliability** (96–99% non-hold, no quota drops) not skill.
+- **No universal fixed config exists**: the best stopMult/tpMult flips by slice and asset. A single fixed exit policy is a baseline, not an optimum — reinforces keeping the evaluator (M9.5) as alert-only drift review rather than auto-tuning.
+- **Guardrails must be calibrated per asset**: 15m volume medians in base coin are BTC ~0.1, ETH ~1.1, SOL ~24; one `minVolume` floor cannot serve all assets.
+- **Operational**: 808 paid decisions ≈ $0.10 (~$0.00012/decision) — wall time (~2h, latency-bound at ~15–25 s/call) is the real bottleneck, not money. Default routing (StreamLake) was kept for sweeps; a `deepseekv4baidu` preset pins the caching-capable Baidu provider for the live-recording loop (verified no privacy-policy 404; saves cache-read credits on the ~850-token sliding lookback).
+
 ## M9 — Indodax live adapter
 
 **Build**: real `packages/exchanges/indodax` implementation (replacing paper for this adapter), retry policy, clock sync, exchange filters, reconciliation (startup + periodic), authenticated control commands, cost/budget caps, daily reset logic, position ownership policy.
