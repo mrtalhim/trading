@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Candle } from '../../packages/core/src/index.js';
@@ -185,5 +185,97 @@ describe('AgentEngine (paper loop)', () => {
     expect(result.outcomes.length).toBeLessThan(candles.length);
     expect(result.outcomes.some((o) => o.violated.includes('paused'))).toBe(true);
     expect(reads).toBeLessThanOrEqual(candles.length);
+  });
+
+  it('writes one decision-log entry per decision cycle with full evaluator fields', async () => {
+    const dataset = new JsonlLoader(GOLDEN);
+    const candles = await loadCandles();
+    const decisions = makeDecisions(candles, 10);
+    const dir = await tempDir();
+    const stateDir = join(dir, 'state');
+
+    const engine = new AgentEngine(
+      { ...baseConfig(), runDir: join(dir, 'run'), stateDir },
+      { clock: { skewMs: () => 0, now: () => 1_700_000_000_000 } },
+    );
+    const result = await engine.run({ dataset, decisions });
+
+    const raw = await readFile(join(stateDir, 'decisions.jsonl'), 'utf8');
+    const lines = raw.trim().split('\n');
+    expect(lines.length).toBe(decisions.length);
+    expect(result.tradeCount).toBeGreaterThan(0);
+
+    const byTs = new Map(
+      lines.map((l) => {
+        const parsed = JSON.parse(l);
+        return [parsed.candleTimestamp, parsed];
+      }),
+    );
+    for (const d of decisions) {
+      const e = byTs.get(d.timestamp);
+      expect(e).toBeDefined();
+      expect(e.candleTimestamp).toBe(d.timestamp);
+      expect(e.model).toBeNull();
+      expect(e.usage).toBeNull();
+      expect(e.llmLatencyMs).toBeNull();
+      expect(typeof e.pair).toBe('string');
+      expect(typeof e.confidence).toBe('number');
+    }
+
+    const traded = lines.map((l) => JSON.parse(l)).filter((e) => e.trades.length > 0);
+    expect(traded.length).toBeGreaterThan(0);
+    for (const e of traded) {
+      expect(typeof e.realizedPnl).toBe('number');
+      expect(e.tradeIds.length).toBe(e.trades.length);
+      expect(
+        e.trades.every((t: { realizedPnl: unknown }) => typeof t.realizedPnl === 'number'),
+      ).toBe(true);
+    }
+  });
+
+  it('honors an active evaluator pause: no trades, pausedBy=evaluator, surfaced in status', async () => {
+    const dataset = new JsonlLoader(GOLDEN);
+    const candles = await loadCandles();
+    const decisions = makeDecisions(candles, 3);
+    const dir = await tempDir();
+    const runDir = join(dir, 'run');
+    const stateDir = join(dir, 'state');
+
+    let reads = 0;
+    const engine = new AgentEngine(
+      { ...baseConfig(), runDir, stateDir, commandCheckEveryCandles: 1 },
+      {
+        clock: { skewMs: () => 0, now: () => 1_700_000_000_000 },
+        readCommand: async () => {
+          reads += 1;
+          if (reads === 15) return 'status';
+          return null;
+        },
+        clearCommand: async () => {},
+        readEvaluatorPauseFn: async () => ({
+          trippedAt: 1_700_000_000_000,
+          expiresAt: null,
+          reason: 'winRate drift beyond threshold',
+          metrics: { winRate: 0.2 },
+          report: '/tmp/reports/daily.json',
+        }),
+      },
+    );
+
+    const result = await engine.run({ dataset, decisions });
+    expect(result.tradeCount).toBe(0);
+
+    const raw = await readFile(join(stateDir, 'decisions.jsonl'), 'utf8');
+    const entries = raw
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l));
+    expect(entries.length).toBe(decisions.length);
+    expect(entries.every((e) => e.pausedBy === 'evaluator')).toBe(true);
+
+    const status = JSON.parse(await readFile(join(runDir, 'status.json'), 'utf8'));
+    expect(status.state).toBe('paused');
+    expect(status.evaluatorPause.active).toBe(true);
+    expect(status.evaluatorPause.reason).toBe('winRate drift beyond threshold');
   });
 });

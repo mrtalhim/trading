@@ -104,6 +104,7 @@ export async function runBacktestCli(argv: string[] = process.argv.slice(2)): Pr
       sampleEvery: a.sampleEvery,
       lookback: a.lookback,
       context: a.context,
+      model: a.preset ?? a.model,
     });
 
     const outPath = a.out ?? a.dataset.replace(/\//g, '-') + '-decisions.jsonl';

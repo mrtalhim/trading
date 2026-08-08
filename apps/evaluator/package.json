@@ -1,12 +1,12 @@
 {
-  "name": "@trading/indodax-agent",
+  "name": "@trading/evaluator",
   "type": "module",
   "version": "0.0.0",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "indodax-agent": "./dist/cli.js"
+    "trading-evaluator": "./dist/cli.js"
   },
   "exports": {
     ".": {
@@ -15,13 +15,9 @@
     }
   },
   "dependencies": {
-    "@trading/backtest": "workspace:*",
+    "@duckdb/node-api": "1.5.5-r.3",
     "@trading/core": "workspace:*",
-    "@trading/datasets": "workspace:*",
-    "@trading/exchanges": "workspace:*",
-    "@trading/features": "workspace:*",
-    "@trading/guardrails": "workspace:*",
-    "@trading/risk": "workspace:*",
+    "@trading/llm": "workspace:*",
     "@trading/storage": "workspace:*",
     "zod": "^3.23.0"
   },

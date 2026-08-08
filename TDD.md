@@ -357,6 +357,21 @@ Runs the `apps/indodax-agent` paper-mode loop over the committed real Indodax da
 - ✓ Deterministic: two runs on the same dataset + decisions produce identical trades, PnL, and checksum
 - ✓ The run survives signal files mid-run (pause → resume → shutdown) and flushes state on the clean exit
 
+## Evaluator (`apps/evaluator`) — M9.5
+
+- ✓ Correctly aggregates win rate, PnL, guardrail-rejection rate, cost per trade, and confidence calibration from a fixed sample of JSONL logs (known expected output for a fixed input log set)
+- ✓ Comparison against benchmark expectations produces the correct drift delta for a known input (no drift → reports no drift; injected drift → reports the correct magnitude)
+- ✓ Pause-and-alert state fires only when the configured threshold is actually crossed, not on ordinary short-term noise — test both a false-positive case (small fluctuation, no alert) and a true-positive case (deliberately degraded win rate, alert fires)
+- ✓ Read-only: running the evaluator against a log set never writes to runner state, guardrail config, or risk parameters — assert this explicitly with a test, don't just assume it from the design
+- ✓ Runs correctly against an empty or partial log set (e.g. first day of a new deployment) without crashing
+- ✓ Uses its own configured provider/model, independent of the runner's — changing the runner's model config must not silently change the evaluator's
+
+## Runner decision logging + evaluator pause integration (M9.5)
+
+- ✓ The runner writes one `decisions.jsonl` entry per decision cycle, with the fields the evaluator needs: `candleTimestamp` (tie-to-candle), pair, model, usage, latency, decision outcome, and the trades that executed in that cycle
+- ✓ An active evaluator pause is honored by the runner: no trades execute, entries are tagged `pausedBy: "evaluator"`, and the pause is surfaced in `status.json`
+- ✓ An expired or missing evaluator pause file is treated as "not paused" — the runner never crashes on it
+
 ## Definition of done (applies to every milestone in ROADMAP.md)
 
 - 100% of that milestone's tests passing

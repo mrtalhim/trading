@@ -94,6 +94,18 @@ export const PRESETS: Record<string, Preset> = {
   },
 };
 
+/**
+ * Looks up a cost model for a model id, matching either a preset name
+ * (`deepseekv4`) or a preset's model string (`deepseek/deepseek-v4-flash`).
+ * Returns null when the model is unknown or has no configured rates.
+ */
+export function costModelForModel(model: string): CostModel | null {
+  const byName = PRESETS[model];
+  if (byName?.costModel) return byName.costModel;
+  const byModel = Object.values(PRESETS).find((p) => p.model === model);
+  return byModel?.costModel ?? null;
+}
+
 export function createEngineFromPreset(
   presetName: string,
   apiKey: string,

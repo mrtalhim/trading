@@ -9,7 +9,9 @@
     { "path": "./packages/risk" },
     { "path": "./packages/exchanges" },
     { "path": "./packages/llm" },
+    { "path": "./packages/storage" },
     { "path": "./apps/backtest" },
-    { "path": "./apps/benchmark" }
+    { "path": "./apps/benchmark" },
+    { "path": "./apps/evaluator" }
   ]
 }

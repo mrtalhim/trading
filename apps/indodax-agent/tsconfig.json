@@ -12,6 +12,7 @@
     { "path": "../../packages/features" },
     { "path": "../../packages/guardrails" },
     { "path": "../../packages/risk" },
+    { "path": "../../packages/storage" },
     { "path": "../backtest" }
   ]
 }

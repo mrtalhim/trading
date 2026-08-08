@@ -1,10 +1,22 @@
 import { readFile } from 'node:fs/promises';
 import type { Action } from '@trading/core';
 
+export interface RecordedDecisionUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 export interface RecordedDecision {
   timestamp: number;
   action: Action;
   confidence: number;
+  /** Model id that produced this decision (absent for synthetic/recorded inputs). */
+  model?: string;
+  /** Wall-clock latency of the LLM call, ms. */
+  llmLatencyMs?: number;
+  /** Token usage reported by the provider, when known. */
+  usage?: RecordedDecisionUsage;
 }
 
 /**
@@ -30,6 +42,10 @@ function parseDecisions(raw: string): RecordedDecision[] {
     .map((l) => coerceDecision(JSON.parse(l)));
 }
 
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
 function coerceDecision(value: unknown): RecordedDecision {
   if (typeof value !== 'object' || value === null) {
     throw new Error(`invalid decision entry: ${JSON.stringify(value)}`);
@@ -44,5 +60,30 @@ function coerceDecision(value: unknown): RecordedDecision {
   if (typeof v.confidence !== 'number' || v.confidence < 0 || v.confidence > 1) {
     throw new Error(`decision has invalid confidence: ${JSON.stringify(value)}`);
   }
-  return { timestamp: v.timestamp, action: v.action, confidence: v.confidence };
+  const decision: RecordedDecision = {
+    timestamp: v.timestamp,
+    action: v.action,
+    confidence: v.confidence,
+  };
+  if (typeof v.model === 'string' && v.model.length > 0) {
+    decision.model = v.model;
+  }
+  if (isFiniteNumber(v.llmLatencyMs) && v.llmLatencyMs >= 0) {
+    decision.llmLatencyMs = v.llmLatencyMs;
+  }
+  if (typeof v.usage === 'object' && v.usage !== null) {
+    const u = v.usage as Record<string, unknown>;
+    if (
+      isFiniteNumber(u.promptTokens) &&
+      isFiniteNumber(u.completionTokens) &&
+      isFiniteNumber(u.totalTokens)
+    ) {
+      decision.usage = {
+        promptTokens: u.promptTokens,
+        completionTokens: u.completionTokens,
+        totalTokens: u.totalTokens,
+      };
+    }
+  }
+  return decision;
 }

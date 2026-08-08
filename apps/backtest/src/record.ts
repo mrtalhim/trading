@@ -2,7 +2,12 @@ import { writeFile } from 'node:fs/promises';
 import type { Dataset } from '@trading/datasets';
 import { ReplayLoader } from '@trading/datasets';
 import type { ContextKind, DecisionEngine } from '@trading/llm';
-import { contextOptionsFor, safeDecide, buildDecisionContext } from '@trading/llm';
+import {
+  contextOptionsFor,
+  safeDecide,
+  classifyLlmError,
+  buildDecisionContext,
+} from '@trading/llm';
 import type { RecordedDecision } from './decisions.js';
 
 export interface RecordOptions {
@@ -11,6 +16,8 @@ export interface RecordOptions {
   symbol: string;
   requestDelayMs: number;
   context: ContextKind;
+  /** Model id stamped into each recorded decision (used by the evaluator for cost). */
+  model?: string;
 }
 
 const DEFAULT_OPTIONS: RecordOptions = {
@@ -40,15 +47,20 @@ export async function recordDecisions(
     const recentCandles = allCandles.slice(lookbackStart, i + 1);
     const ctx = buildDecisionContext(opts.symbol, recentCandles, contextOptionsFor(opts.context));
 
-    const decision = await safeDecide(engine, {
+    const startedAt = Date.now();
+    const decision = await decideWithLatency(engine, {
       ...ctx,
       timestamp: allCandles[i].timestamp,
     });
+    const llmLatencyMs = Date.now() - startedAt;
 
     decisions.push({
       timestamp: allCandles[i].timestamp,
-      action: decision.action,
-      confidence: decision.confidence,
+      action: decision.decision.action,
+      confidence: decision.decision.confidence,
+      model: opts.model,
+      usage: decision.usage ?? undefined,
+      llmLatencyMs,
     });
 
     if (i + opts.sampleEvery < allCandles.length) {
@@ -69,4 +81,29 @@ export async function writeDecisions(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+interface DecisionWithLatency {
+  decision: { action: 'long' | 'short' | 'hold'; confidence: number };
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null;
+}
+
+async function decideWithLatency(
+  engine: DecisionEngine,
+  ctx: { systemPrompt: string; userPrompt: string; timestamp?: number },
+): Promise<DecisionWithLatency> {
+  if (typeof engine.decideWithUsage === 'function') {
+    try {
+      const result = await engine.decideWithUsage(ctx);
+      return { decision: result.decision, usage: result.usage };
+    } catch (err) {
+      console.error(
+        err instanceof Error
+          ? `[${classifyLlmError(err)}] ${err.message}`
+          : `[fatal] ${String(err)}`,
+      );
+      return { decision: { action: 'hold', confidence: 0 }, usage: null };
+    }
+  }
+  return { decision: await safeDecide(engine, ctx), usage: null };
 }

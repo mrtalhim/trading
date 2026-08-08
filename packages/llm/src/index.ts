@@ -21,5 +21,20 @@ export { AnthropicEngine } from './anthropic.js';
 export { GeminiEngine } from './gemini.js';
 export type { GeminiConfig } from './gemini.js';
 export { createDecisionEngine } from './providers.js';
-export { createEngineFromPreset, PRESETS } from './providers.js';
+export { createEngineFromPreset, PRESETS, costModelForModel } from './providers.js';
 export type { ProviderConfig, Preset } from './providers.js';
+export { chatCompletion } from './chat.js';
+export type { ChatCompletionRequest, ChatCompletionResult, ChatMessage } from './chat.js';
+export {
+  OpenAICompatibleReviewEngine,
+  createReviewEngine,
+  buildReviewUserPrompt,
+} from './review.js';
+export type {
+  ReviewEngine,
+  ReviewContext,
+  ReviewResult,
+  ReviewEngineConfig,
+  ReviewDriftEntry,
+  DriftDirection,
+} from './review.js';

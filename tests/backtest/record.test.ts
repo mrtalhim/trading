@@ -68,16 +68,19 @@ describe('recordDecisions', () => {
       requestDelayMs: 0,
     });
     expect(decisions).toHaveLength(10);
-    expect(decisions[0]).toEqual({
+    expect(decisions[0]).toMatchObject({
       timestamp: baseCandles[0].timestamp,
       action: 'long',
       confidence: 0.8,
     });
-    expect(decisions[1]).toEqual({
+    expect(decisions[1]).toMatchObject({
       timestamp: baseCandles[1].timestamp,
       action: 'hold',
       confidence: 0.5,
     });
+    expect(typeof decisions[0].llmLatencyMs).toBe('number');
+    expect(decisions[0].model).toBeUndefined();
+    expect(decisions[0].usage).toBeUndefined();
   });
 
   it('respects sampleEvery', async () => {

@@ -131,10 +131,26 @@ All three lost money on this 2024 slice (every closed trade lost → winRate 0).
 **Indodax historical candles**: pull real OHLC directly from the public TradingView-compatible endpoint `/tradingview/history_v2?from={ts}&symbol={symbol}&tf={minutes}&to={ts}` where `symbol` is the uppercase pair id from `/tradingview/search_v2` (e.g. `symbol=BTCIDR`; the lowercase `.btc_idr` form does not resolve). Do **not** build a trade-aggregation pipeline from `/api/trades` — candles already exist (ADR-012). The parser is confirmed live: bars come back as one object per candle (`Time` epoch seconds, `Volume` as string) and `[]` when there is no data in range. Validate/checksum the pulled data the same way as the synthetic set.
 **Done when**: a full paper-mode run against real Indodax market data (real prices, simulated fills) survives a 10,000-candle E2E test with no crashes, no NaN, deterministic PnL.
 
+## M9.5 — Evaluator (slow-frequency performance review)
+
+**Build**: `apps/evaluator` — a standalone, independently-scheduled script (daily, optionally also weekly), separate from the 15m runner loop. It reads the JSONL logs the runner already writes (DuckDB queries over them, per ADR-004's deferred plan — this is the moment that pays off), and:
+
+- Aggregates realized win rate, PnL, guardrail-rejection rate, cost per trade, and confidence calibration over the period
+- Compares each against the M8 benchmark's expected numbers for whichever model is currently live
+- Sends a summary to the existing WhatsApp/Telegram notification channel
+- Trips a distinct "pause new positions, alert for human review" state (not the same as a guardrail rejection) if drift crosses a configured threshold — e.g. win rate meaningfully below rolling backtest expectation
+- Uses its own independently-configured LLM provider/model, separate from the runner's model choice — this component benefits from a stronger model since it runs far less often and the task is more open-ended (see reasoning below)
+
+**Explicitly out of scope**: no automatic strategy or parameter adjustment based on evaluator findings. Read-only reporting and alerting only — a human decides what to do with a flagged drift. This keeps capital-protecting logic deterministic and human-gated, per the Project Charter.
+
+**Do not touch**: the runner's decision loop itself, guardrails, risk engine — the evaluator observes, it never writes to trading state.
+
+**Done when**: running the evaluator against a week of real or simulated log data produces an accurate, correctly-thresholded drift report, and a deliberately-injected drift (e.g. replaying logs with an artificially degraded win rate) correctly trips the pause-and-alert state.
+
 ## M10 — Android / Termux deployment
 
-**Build**: Termux + proot-distro setup scripts, device-health monitoring, wake-lock handling, heartbeat, circuit breakers tied to device state, `tmux`-based persistence.
-**Done when**: the M9 paper-mode agent runs unattended on the phone for a defined soak period (e.g. 1-2 weeks) with no missed heartbeats beyond the alerting threshold and no state corruption after at least one forced reboot.
+**Build**: Termux + proot-distro setup scripts, device-health monitoring, wake-lock handling, heartbeat, circuit breakers tied to device state, `tmux`-based persistence. Include the evaluator's schedule (cron/`termux-job-scheduler`) as part of this deployment, since it should be running throughout the M10 soak test, not added afterward.
+**Done when**: the M9 paper-mode agent — plus the M9.5 evaluator running on schedule alongside it — runs unattended on the phone for a defined soak period (1-2 weeks) with no missed heartbeats beyond the alerting threshold, no state corruption after at least one forced reboot, and at least one real evaluator report generated and delivered on schedule.
 
 ---
 

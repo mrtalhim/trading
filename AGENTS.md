@@ -39,22 +39,25 @@ Don't start implementing until that's done. Silent assumptions are the main sour
 | `packages/core`          | Decision types, state machine, interfaces, schemas — zero deps                       |
 | `packages/indicators`    | RSI/ATR/EMA/SMA/ADX/VWAP, self-implemented                                           |
 | `packages/risk`          | Deterministic sizing/stop/TP strategies                                              |
-| `packages/guardrails`    | Pure, deterministic guardrail rule set (depends on `core`; consumed by all apps)     |
+| `packages/guardrails`    | Pure, deterministic approve/reject rules — imported identically by every app, never embedded in one |
 | `packages/llm`           | `DecisionEngine` interface + provider adapters                                       |
 | `packages/exchanges`     | `indodax/`, `paper/`                                                                 |
 | `packages/notifications` | Telegram/WhatsApp/Discord                                                            |
 | `packages/storage`       | JSONL now, DuckDB later                                                              |
-| `packages/datasets`      | Record/version/replay for golden datasets                                            |
+| `packages/datasets`      | `Dataset` interface, JSONL/CSV/Parquet loaders, validator, checksum, `ReplayLoader`, golden datasets |
 | `packages/features`      | Feature pipeline consuming `Dataset` (indicators per-window, versioned)              |
 | `packages/android`       | Termux/proot deployment, device health                                               |
 | `apps/indodax-agent`     | The live/paper trading runtime                                                       |
 | `apps/backtest`          | Record/replay                                                                        |
 | `apps/benchmark`         | Multi-model leaderboard                                                              |
+| `apps/evaluator`         | Standalone, independently-scheduled (daily/weekly) drift review over runner logs — DuckDB queries on JSONL, alerts only, no auto-adjustment, own configured LLM provider |
 | `tests/`                 | unit/, integration/, contracts/, property/, replay/, e2e/ — mirrors the architecture |
 
 ## If you're an agent picking up mid-project
 
 Check CI status and the last milestone marked done in ROADMAP.md before assuming where the project is. Don't trust an in-progress branch's state over what CI says actually passes.
+
+If `.github/workflows/ci.yml` doesn't exist yet, that's an M0 gap, not a green light to skip the check — add it (lint → typecheck → test) before treating any later milestone's DoD as real. Local `pnpm check` is not a substitute for CI actually running.
 
 ## Indodax exchange behaviors (verified live 2026-08, do not "fix" by assumption)
 

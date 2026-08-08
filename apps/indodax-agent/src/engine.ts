@@ -10,10 +10,19 @@ import type { GuardrailConfig } from '@trading/guardrails';
 import { positionSize } from '@trading/risk';
 import type { OutcomeRecord, RecordedDecision, TradeRecord } from '@trading/backtest';
 import {
+  DecisionLogStore,
+  type DecisionLogEntry,
+  type DecisionTrade,
+  type PauseSource,
+} from '@trading/storage';
+import {
   clearCommand as clearDefaultCommandFn,
   readCommand as readDefaultCommandFn,
+  readEvaluatorPause as readDefaultEvaluatorPauseFn,
   writeStatus as writeDefaultStatusFn,
   type AgentCommand,
+  type EvaluatorPauseFile,
+  type StatusFile,
 } from './signal.js';
 import { StateStore, type AgentState } from './state.js';
 import type { AgentConfig } from './config.js';
@@ -47,9 +56,15 @@ export interface AgentDeps {
   store?: StateStore;
   readCommand?: (dir: string) => Promise<AgentCommand | null>;
   clearCommand?: (dir: string) => Promise<void>;
+  readEvaluatorPauseFn?: (dir: string, now: number) => Promise<EvaluatorPauseFile | null>;
+  decisionLog?: DecisionLogStore;
   writeStatusFn?: (
     runDir: string,
-    status: { state: 'paused' | 'running' | 'stopped'; candleCount: number },
+    status: {
+      state: 'paused' | 'running' | 'stopped';
+      candleCount: number;
+      evaluatorPause?: StatusFile['evaluatorPause'];
+    },
   ) => Promise<void>;
 }
 
@@ -90,6 +105,7 @@ export class AgentEngine {
   private readonly store: StateStore;
   private readonly clock: AgentClock;
   private readonly budget: BudgetTracker;
+  private readonly decisionLog: DecisionLogStore;
 
   constructor(
     private readonly config: AgentConfig,
@@ -99,6 +115,7 @@ export class AgentEngine {
     this.store = deps.store ?? new StateStore(config.stateDir, config.ownerId);
     this.clock = deps.clock ?? DEFAULT_CLOCK;
     this.budget = deps.budget ?? new BudgetTracker({ dailyBudgetIdr: config.dailyBudgetIdr });
+    this.decisionLog = deps.decisionLog ?? new DecisionLogStore(config.stateDir);
   }
 
   async run(input: { dataset: Dataset; decisions: RecordedDecision[] }): Promise<AgentResult> {
@@ -117,8 +134,10 @@ export class AgentEngine {
       exchange,
       clock: this.clock,
       budget: this.budget,
+      decisionLog: this.decisionLog,
       readCommand: depsRelative(this.deps.readCommand, readDefaultCommandFn),
       clearCommand: depsRelative(this.deps.clearCommand, clearDefaultCommandFn),
+      readEvaluatorPause: depsRelative(this.deps.readEvaluatorPauseFn, readDefaultEvaluatorPauseFn),
       writeStatusFn: this.deps.writeStatusFn ?? writeDefaultStatusFn,
     });
 
@@ -140,11 +159,17 @@ interface CycleCtx {
   exchange: PaperExchange;
   clock: AgentClock;
   budget: BudgetTracker;
+  decisionLog: DecisionLogStore;
   readCommand: (dir: string) => Promise<AgentCommand | null>;
   clearCommand: (dir: string) => Promise<void>;
+  readEvaluatorPause: (dir: string, now: number) => Promise<EvaluatorPauseFile | null>;
   writeStatusFn: (
     runDir: string,
-    status: { state: 'paused' | 'running' | 'stopped'; candleCount: number },
+    status: {
+      state: 'paused' | 'running' | 'stopped';
+      candleCount: number;
+      evaluatorPause?: StatusFile['evaluatorPause'];
+    },
   ) => Promise<void>;
 }
 
@@ -157,7 +182,9 @@ class CycleRunner {
   private dailyLoss = 0;
   private currentDay = -1;
   private cooldownUntil = 0;
-  private paused = false;
+  private manualPaused = false;
+  private evaluatorPaused = false;
+  private evaluatorPauseInfo: StatusFile['evaluatorPause'] | null = null;
   private reconcileCounter = 0;
   private commandCounter = 0;
   private position = 0;
@@ -187,21 +214,22 @@ class CycleRunner {
     let currentDecision = 0;
 
     for (const candle of candles) {
-      const command = await this.readCommandOnce();
+      const command = await this.readControls();
       if (command === 'shutdown') {
         await this.ctx.clearCommand(this.config.runDir);
         break;
       }
       if (command === 'pause') {
-        this.paused = true;
+        this.manualPaused = true;
         await this.ctx.clearCommand(this.config.runDir);
       } else if (command === 'resume') {
-        this.paused = false;
+        this.manualPaused = false;
         await this.ctx.clearCommand(this.config.runDir);
       } else if (command === 'status') {
         await this.ctx.writeStatusFn(this.config.runDir, {
-          state: this.paused ? 'paused' : 'running',
+          state: this.manualPaused || this.evaluatorPaused ? 'paused' : 'running',
           candleCount: this.outcomes.length,
+          evaluatorPause: this.evaluatorPauseInfo ?? undefined,
         });
         await this.ctx.clearCommand(this.config.runDir);
       }
@@ -236,10 +264,21 @@ class CycleRunner {
     return this.buildResult(candles, last.close);
   }
 
-  private async readCommandOnce(): Promise<AgentCommand | null> {
+  private async readControls(): Promise<AgentCommand | null> {
     this.commandCounter += 1;
     if (this.commandCounter % this.config.commandCheckEveryCandles !== 0) return null;
-    return this.ctx.readCommand(this.config.runDir);
+    const command = await this.ctx.readCommand(this.config.runDir);
+    const pause = await this.ctx.readEvaluatorPause(this.config.runDir, this.ctx.clock.now());
+    this.evaluatorPaused = pause !== null;
+    this.evaluatorPauseInfo = pause
+      ? {
+          active: true,
+          reason: pause.reason,
+          expiresAt: pause.expiresAt,
+          metrics: pause.metrics,
+        }
+      : null;
+    return command;
   }
 
   private async reconcile(_timestamp: number): Promise<void> {
@@ -267,23 +306,12 @@ class CycleRunner {
 
   private async processCandle(candle: Candle, decision: RecordedDecision | null): Promise<void> {
     const timestamp = candle.timestamp;
-    const price = candle.close;
 
-    if (!decision) {
-      this.outcomes.push({
-        timestamp,
-        action: 'hold',
-        allowed: true,
-        violated: [],
-        invalidDecision: false,
-      });
-      return;
-    }
+    if (!decision) return;
 
     const validated = parseDecision({ action: decision.action, confidence: decision.confidence });
     if (!validated.success || !validated.data) {
-      this.outcomes.push({
-        timestamp,
+      await this.recordOutcome(candle, decision, {
         action: decision.action,
         allowed: false,
         violated: ['invalid_decision'],
@@ -296,8 +324,7 @@ class CycleRunner {
     const confidence = validated.data.confidence;
 
     if (action === 'hold') {
-      this.outcomes.push({
-        timestamp,
+      await this.recordOutcome(candle, decision, {
         action: 'hold',
         allowed: true,
         violated: [],
@@ -306,14 +333,18 @@ class CycleRunner {
       return;
     }
 
-    if (this.paused) {
-      this.outcomes.push({
-        timestamp,
-        action: 'hold',
-        allowed: true,
-        violated: ['paused'],
-        invalidDecision: false,
-      });
+    if (this.manualPaused || this.evaluatorPaused) {
+      await this.recordOutcome(
+        candle,
+        decision,
+        {
+          action: 'hold',
+          allowed: true,
+          violated: this.manualPaused ? ['paused'] : [],
+          invalidDecision: false,
+        },
+        this.manualPaused ? 'manual' : 'evaluator',
+      );
       return;
     }
 
@@ -321,14 +352,13 @@ class CycleRunner {
     const quoteFree = balances.find((b) => b.asset === this.config.quote)?.free ?? 0;
     const baseTotal = balances.find((b) => b.asset === this.config.base)?.total ?? 0;
 
-    const portfolioValue = quoteFree + baseTotal * price;
-    const positionPercent = portfolioValue > 0 ? (baseTotal * price) / portfolioValue : 0;
+    const portfolioValue = quoteFree + baseTotal * candle.close;
+    const positionPercent = portfolioValue > 0 ? (baseTotal * candle.close) / portfolioValue : 0;
     const proposedPositionSize = positionSize(portfolioValue, quoteFree, this.config.sizing);
     const atr = this.ctx.atrByTimestamp.get(timestamp) ?? 0;
 
     if (proposedPositionSize > 0 && proposedPositionSize < this.config.minNotionalIdr) {
-      this.outcomes.push({
-        timestamp,
+      await this.recordOutcome(candle, decision, {
         action,
         allowed: false,
         violated: ['below_min_notional'],
@@ -368,8 +398,7 @@ class CycleRunner {
     });
 
     if (!result.allowed) {
-      this.outcomes.push({
-        timestamp,
+      await this.recordOutcome(candle, decision, {
         action: result.action,
         allowed: false,
         violated: result.violated,
@@ -381,8 +410,7 @@ class CycleRunner {
     const notional = proposedPositionSize;
     const feeEstimate = notional * this.config.feeRate;
     if (!this.ctx.budget.spend(notional + feeEstimate)) {
-      this.outcomes.push({
-        timestamp,
+      await this.recordOutcome(candle, decision, {
         action,
         allowed: false,
         violated: ['budget_cap'],
@@ -391,14 +419,72 @@ class CycleRunner {
       return;
     }
 
-    await this.executeTrade(timestamp, action, price, proposedPositionSize);
-    this.outcomes.push({
-      timestamp,
-      action: result.action,
-      allowed: true,
-      violated: [],
-      invalidDecision: false,
-    });
+    const before = {
+      trades: this.trades.length,
+      pnl: this.realizedPnl,
+      fees: this.totalFees,
+    };
+    await this.executeTrade(timestamp, action, candle.close, proposedPositionSize);
+    await this.recordOutcome(
+      candle,
+      decision,
+      {
+        action: result.action,
+        allowed: true,
+        violated: [],
+        invalidDecision: false,
+      },
+      null,
+      before,
+    );
+  }
+
+  private async recordOutcome(
+    candle: Candle,
+    decision: RecordedDecision,
+    partial: Pick<OutcomeRecord, 'action' | 'allowed' | 'violated' | 'invalidDecision'>,
+    pausedBy: PauseSource = null,
+    before?: { trades: number; pnl: number; fees: number },
+  ): Promise<void> {
+    const tradesBefore = before?.trades ?? this.trades.length;
+    const pnlBefore = before?.pnl ?? this.realizedPnl;
+    const feeBefore = before?.fees ?? this.totalFees;
+
+    const outcome: OutcomeRecord = { timestamp: candle.timestamp, ...partial };
+    this.outcomes.push(outcome);
+
+    const cycleTrades = this.trades.slice(tradesBefore);
+    const entry: DecisionLogEntry = {
+      ts: this.ctx.clock.now(),
+      candleTimestamp: candle.timestamp,
+      pair: this.config.pair,
+      model: decision.model ?? null,
+      action: decision.action,
+      confidence: Number.isFinite(decision.confidence) ? decision.confidence : 0,
+      invalidDecision: outcome.invalidDecision,
+      allowed: outcome.allowed,
+      violated: outcome.violated,
+      pausedBy,
+      price: candle.close,
+      position: this.position,
+      realizedPnl: this.realizedPnl - pnlBefore,
+      fee: this.totalFees - feeBefore,
+      tradeIds: cycleTrades.map((t) => t.clientOrderId),
+      trades: cycleTrades.map((t): DecisionTrade => ({
+        clientOrderId: t.clientOrderId,
+        side: t.side,
+        action: t.action,
+        quantity: t.quantity,
+        price: t.price,
+        fee: t.fee,
+        status: t.status,
+        realizedPnl: t.realizedPnl,
+      })),
+      llmLatencyMs: decision.llmLatencyMs ?? null,
+      usage: decision.usage ?? null,
+    };
+
+    await this.ctx.decisionLog.append(entry);
   }
 
   private async executeTrade(
