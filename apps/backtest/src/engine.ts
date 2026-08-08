@@ -24,6 +24,10 @@ export interface BacktestConfig {
   guardrails?: Partial<GuardrailConfig>;
   collectEquity?: boolean;
   featureSpecs?: { name: string; indicator: 'atr'; params?: Record<string, unknown> }[];
+  /** EXPERIMENTAL (default off): exit open positions on ATR stop/TP levels between decisions. */
+  enableStops?: boolean;
+  /** ATR multiplier for take-profit when `enableStops` is on (default 3). */
+  atrTpMultiplier?: number;
 }
 
 export interface TradeRecord {
@@ -102,6 +106,7 @@ export class BacktestEngine {
   private dailyLoss = 0;
   private currentDay = -1;
   private equityCurve: { timestamp: number; equity: number }[] = [];
+  private exitLevels: { stop: number; tp: number } | null = null;
 
   constructor(config: BacktestConfig) {
     this.config = config;
@@ -210,6 +215,10 @@ export class BacktestEngine {
     const timestamp = candle.timestamp;
     const price = candle.close;
 
+    if (this.config.enableStops && this.pos !== 0 && this.exitLevels) {
+      await this.checkStopTp(timestamp, candle);
+    }
+
     if (!decision) {
       this.outcomes.push({
         timestamp,
@@ -309,6 +318,62 @@ export class BacktestEngine {
     });
   }
 
+  private async checkStopTp(timestamp: number, candle: Candle): Promise<void> {
+    const { stop, tp } = this.exitLevels!;
+    const resume = candle.close;
+    if (this.pos > 0) {
+      if (candle.low <= stop) {
+        await this.closePosition(timestamp, stop, resume);
+        return;
+      }
+      if (candle.high >= tp) {
+        await this.closePosition(timestamp, tp, resume);
+      }
+    } else {
+      if (candle.high >= stop) {
+        await this.closePosition(timestamp, stop, resume);
+        return;
+      }
+      if (candle.low <= tp) {
+        await this.closePosition(timestamp, tp, resume);
+      }
+    }
+  }
+
+  private async closePosition(timestamp: number, price: number, resume: number): Promise<void> {
+    const side: 'buy' | 'sell' = this.pos > 0 ? 'sell' : 'buy';
+    const quantity = Math.abs(this.pos);
+    this.exchange.updatePrice(this.config.symbol, price, timestamp);
+    const clientOrderId = `bt-${++this.clientOrderSeq}`;
+    const filled = await this.exchange.createOrder({
+      symbol: this.config.symbol,
+      side,
+      type: 'market',
+      quantity,
+      clientOrderId,
+    });
+    this.exchange.updatePrice(this.config.symbol, resume, timestamp);
+
+    const fillPrice = filled.averagePrice ?? filled.price ?? price;
+    const fee = fillPrice * quantity * (this.config.feeRate ?? 0);
+    this.totalFees += fee;
+    const realized = this.applyFill(side, quantity, fillPrice);
+
+    this.trades.push({
+      timestamp,
+      clientOrderId,
+      side,
+      action: side === 'sell' ? 'short' : 'long',
+      quantity,
+      price: fillPrice,
+      fee,
+      status: filled.status,
+      realizedPnl: realized,
+    });
+    this.exitLevels = null;
+    this.tradesThisHour += 1;
+  }
+
   private async executeTrade(
     timestamp: number,
     action: Action,
@@ -327,6 +392,7 @@ export class BacktestEngine {
     const openQty = proposedPositionSize / price;
     orders.push({ side: action === 'long' ? 'buy' : 'sell', quantity: openQty });
 
+    let openPrice = price;
     for (const order of orders) {
       const clientOrderId = `bt-${++this.clientOrderSeq}`;
       const filled = await this.exchange.createOrder({
@@ -338,6 +404,7 @@ export class BacktestEngine {
       });
 
       const fillPrice = filled.averagePrice ?? filled.price ?? price;
+      openPrice = fillPrice;
       const fee = fillPrice * order.quantity * (this.config.feeRate ?? 0);
       this.totalFees += fee;
       const realized = this.applyFill(order.side, order.quantity, fillPrice);
@@ -356,6 +423,20 @@ export class BacktestEngine {
     }
 
     this.tradesThisHour += 1;
+
+    if (this.config.enableStops) {
+      const atr = this.atrByTimestamp.get(timestamp) ?? 0;
+      if (atr > 0) {
+        const stopMult = this.config.atrStopMultiplier;
+        const tpMult = this.config.atrTpMultiplier ?? 3;
+        this.exitLevels =
+          action === 'long'
+            ? { stop: openPrice - atr * stopMult, tp: openPrice + atr * tpMult }
+            : { stop: openPrice + atr * stopMult, tp: openPrice - atr * tpMult };
+      } else {
+        this.exitLevels = null;
+      }
+    }
   }
 
   private applyFill(side: 'buy' | 'sell', quantity: number, price: number): number {

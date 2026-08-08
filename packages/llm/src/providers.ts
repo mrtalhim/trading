@@ -36,6 +36,12 @@ export const PRESETS: Record<string, Preset> = {
     model: 'nvidia/nemotron-3-nano-30b-a3b:free',
     baseURL: 'https://openrouter.ai/api/v1',
   },
+  nemotronultra: {
+    name: 'NVIDIA Nemotron 3 Ultra 550B',
+    kind: 'openai',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
   gptoss: {
     name: 'OpenAI GPT-OSS 20B',
     kind: 'openai',
