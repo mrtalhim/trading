@@ -42,7 +42,7 @@ interface CliArgs {
   minVolume?: string;
 }
 
-const CONTEXT_KINDS: ContextKind[] = ['baseline', 'indicators', 'patterns'];
+const CONTEXT_KINDS: ContextKind[] = ['baseline', 'indicators', 'patterns', 'orderflow'];
 
 export function parseContext(value: string): ContextKind {
   if (!CONTEXT_KINDS.includes(value as ContextKind)) {

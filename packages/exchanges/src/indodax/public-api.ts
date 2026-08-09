@@ -1,10 +1,13 @@
 /**
  * Public (unauthenticated) Indodax endpoints: symbol search, tradingview
- * history, and pair filters (`/tradingview/search_v2`, `/tradingview/history_v2`,
- * `/api/pairs_v2`). No credentials are involved. A fetch function is injected
- * so tests never touch the network — they reuse the same `fetch` shape Node
- * 18+ and browsers provide.
+ * history, pair filters, and order book depth
+ * (`/tradingview/search_v2`, `/tradingview/history_v2`, `/api/pairs_v2`,
+ * `/api/depth/{pair}`). No credentials are involved. A fetch function is
+ * injected so tests never touch the network — they reuse the same `fetch`
+ * shape Node 18+ and browsers provide.
  */
+
+import type { OrderBook } from '@trading/core';
 
 export type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -99,6 +102,7 @@ const BASE_URL = 'https://indodax.com';
 const HISTORY_PATH = '/tradingview/history_v2';
 const SEARCH_PATH = '/tradingview/search_v2';
 const PAIRS_PATH = '/api/pairs_v2';
+const DEPTH_PATH = '/api/depth';
 
 function isTransient(res: Response): boolean {
   return res.status === 429 || (res.status >= 500 && res.status <= 599);
@@ -145,6 +149,38 @@ export function parsePairInfo(raw: Record<string, unknown>): PairInfo {
   };
 }
 
+function parseDepthLevels(raw: unknown): [number, number][] {
+  if (!Array.isArray(raw)) throw new Error('depth: buy/sell must be arrays');
+  const levels = raw.map((level) => {
+    if (!Array.isArray(level) || level.length < 2) {
+      throw new Error('depth: malformed price level');
+    }
+    const price = Number(level[0]);
+    const qty = Number(level[1]);
+    if (!Number.isFinite(price) || !Number.isFinite(qty)) {
+      throw new Error('depth: non-numeric price level');
+    }
+    return [price, qty] as [number, number];
+  });
+  return levels;
+}
+
+/**
+ * Maps an `/api/depth/{pair}` response (`buy`/`sell` level lists, prices and
+ * quantities often as strings) onto the canonical {@link OrderBook} shape:
+ * `bids` sorted price-desc, `asks` sorted price-asc, plus the observation
+ * `timestamp` supplied by the caller (the fetch moment / candle boundary).
+ */
+export function parseDepth(raw: unknown, timestamp: number): OrderBook {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error('depth: expected an object response');
+  }
+  const r = raw as Record<string, unknown>;
+  const bids = parseDepthLevels(r.buy).sort((a, b) => b[0] - a[0]);
+  const asks = parseDepthLevels(r.sell).sort((a, b) => a[0] - b[0]);
+  return { bids, asks, timestamp };
+}
+
 export class PublicApiError extends Error {
   constructor(
     message: string,
@@ -171,11 +207,11 @@ export class IndodaxPublicApiClient {
     this.base = base;
   }
 
-  private async request<T>(path: string, params: Record<string, string | number>): Promise<T> {
+  private async request<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
     const query = Object.entries(params)
       .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
       .join('&');
-    const url = `${this.base}${path}?${query}`;
+    const url = query ? `${this.base}${path}?${query}` : `${this.base}${path}`;
 
     let lastErr: unknown = null;
     for (let attempt = 0; attempt <= this.policy.maxRetries; attempt += 1) {
@@ -238,5 +274,12 @@ export class IndodaxPublicApiClient {
     return this.request<Record<string, unknown>>(PAIRS_PATH, {
       pair: normalizePairSymbol(symbol),
     }).then(parsePairInfo);
+  }
+
+  fetchDepth(symbol: string): Promise<OrderBook> {
+    const id = normalizePairSymbol(symbol);
+    return this.request<Record<string, unknown>>(`${DEPTH_PATH}/${id}`).then((raw) =>
+      parseDepth(raw, Date.now()),
+    );
   }
 }

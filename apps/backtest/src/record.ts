@@ -39,23 +39,27 @@ export async function recordDecisions(
 
   allCandles.sort((a, b) => a.timestamp - b.timestamp);
   const decisions: RecordedDecision[] = [];
+  const renderOpts = contextOptionsFor(opts.context);
 
   for (let i = 0; i < allCandles.length; i++) {
     if (i % opts.sampleEvery !== 0) continue;
 
     const lookbackStart = Math.max(0, i - opts.lookback + 1);
     const recentCandles = allCandles.slice(lookbackStart, i + 1);
-    const ctx = buildDecisionContext(opts.symbol, recentCandles, contextOptionsFor(opts.context));
+    const ts = allCandles[i].timestamp;
+    // Orderflow block reads the snapshot keyed to the decision candle's close.
+    const book = renderOpts.includeOrderflow ? ((await dataset.orderbook?.(ts)) ?? null) : null;
+    const ctx = buildDecisionContext(opts.symbol, recentCandles, renderOpts, book);
 
     const startedAt = Date.now();
     const decision = await decideWithLatency(engine, {
       ...ctx,
-      timestamp: allCandles[i].timestamp,
+      timestamp: ts,
     });
     const llmLatencyMs = Date.now() - startedAt;
 
     decisions.push({
-      timestamp: allCandles[i].timestamp,
+      timestamp: ts,
       action: decision.decision.action,
       confidence: decision.decision.confidence,
       model: opts.model,

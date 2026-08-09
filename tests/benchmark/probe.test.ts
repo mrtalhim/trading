@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Dataset } from '../../packages/datasets/src/index.js';
 import {
   DecisionError,
   DecisionParseError,
@@ -103,6 +104,70 @@ describe('probeDecisions', () => {
     await expect(
       probeDecisions(dataset, engine, [1], { lookback: 5, repeats: 1, requestDelayMs: 0 }),
     ).rejects.toThrow(/not found/i);
+  });
+
+  it('orderflow arm feeds the snapshot keyed to the decision candle into the prompt', async () => {
+    const book = {
+      bids: [
+        [100, 2],
+        [99, 1],
+      ],
+      asks: [[101, 1]],
+      timestamp: candles[10].timestamp,
+    };
+    const withBook: Dataset = {
+      ...dataset,
+      orderbook: async (ts: number) => (ts === candles[10].timestamp ? book : null),
+    };
+    const seen: string[] = [];
+    const engine = new FakeEngine('fake:model', (ctx) => {
+      seen.push(ctx.userPrompt);
+      return { action: 'hold', confidence: 0.5 };
+    });
+    await probeDecisions(withBook, engine, [candles[10].timestamp], {
+      lookback: 5,
+      repeats: 1,
+      requestDelayMs: 0,
+      context: 'orderflow',
+    });
+    expect(seen[0]).toContain('Orderbook (depth, top 5 levels):');
+    expect(seen[0]).toContain('imbalance:');
+    expect(seen[0]).toContain('Indicators:');
+  });
+
+  it('orderflow arm renders unavailable when the decision candle has no snapshot', async () => {
+    const withBook: Dataset = { ...dataset, orderbook: async () => null };
+    const seen: string[] = [];
+    const engine = new FakeEngine('fake:model', (ctx) => {
+      seen.push(ctx.userPrompt);
+      return { action: 'hold', confidence: 0.5 };
+    });
+    await probeDecisions(withBook, engine, ts, {
+      lookback: 5,
+      repeats: 1,
+      requestDelayMs: 0,
+      context: 'orderflow',
+    });
+    expect(seen[0]).toContain('Orderbook: unavailable');
+  });
+
+  it('never queries orderbook for non-orderflow contexts', async () => {
+    let calls = 0;
+    const withBook: Dataset = {
+      ...dataset,
+      orderbook: async () => {
+        calls += 1;
+        return null;
+      },
+    };
+    const engine = FakeEngine.valid('fake:model', { action: 'hold', confidence: 0.5 });
+    await probeDecisions(withBook, engine, ts, {
+      lookback: 5,
+      repeats: 1,
+      requestDelayMs: 0,
+      context: 'indicators',
+    });
+    expect(calls).toBe(0);
   });
 
   it('is deterministic except latency', async () => {

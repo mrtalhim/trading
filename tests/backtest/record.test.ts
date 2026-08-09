@@ -151,6 +151,34 @@ describe('recordDecisions', () => {
     expect(engine.calls[0].userPrompt).not.toContain('Indicators:');
     expect(engine.calls[0].userPrompt).not.toContain('Patterns:');
   });
+
+  it('renders the orderflow block from the snapshot keyed to each decision candle', async () => {
+    const book = {
+      bids: [
+        [100, 2],
+        [99, 1],
+      ],
+      asks: [[101, 1]],
+      timestamp: baseCandles[3].timestamp,
+    };
+    const ds: Dataset = {
+      ...fakeDataset(baseCandles),
+      orderbook: async (ts: number) => (ts === baseCandles[3].timestamp ? book : null),
+    };
+    const engine = fakeEngine([{ action: 'hold', confidence: 0.5 }]);
+    await recordDecisions(ds, engine, {
+      sampleEvery: 3,
+      symbol: 'BTC/USDT',
+      requestDelayMs: 0,
+      context: 'orderflow',
+    });
+    const calls = engine.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[0].userPrompt).toContain('Indicators:');
+    expect(calls[0].userPrompt).toContain('Orderbook: unavailable');
+    expect(calls[1].userPrompt).toContain('Orderbook (depth, top 5 levels):');
+    expect(calls[1].userPrompt).toContain('imbalance:');
+  });
 });
 
 describe('writeDecisions', () => {

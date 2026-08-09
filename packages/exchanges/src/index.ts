@@ -34,6 +34,7 @@ export {
   IndodaxPublicApiClient,
   normalizeHistorySymbol,
   normalizePairSymbol,
+  parseDepth,
   parseHistoryBars,
   parsePairInfo,
   historyRetryPolicy,

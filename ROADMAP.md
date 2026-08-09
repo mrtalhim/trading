@@ -79,6 +79,29 @@ Probe quality fix in the same pass: the default 10s client timeout cut ~30% of p
 
 **Verdict (recorded 2026-08-09)**: **Discard.** The fng context arm credibly *hurts* backtested PnL (CI excludes 0 on the negative side), the primary win-rate metric leans negative, and directional accuracy does not improve. Per the pre-committed rule ("discard if no credible improvement"), the `--context=fng` arm and its snapshot are removed from the codebase; the `--min-volume` harness fix stays (it is a general correctness fix). Real spend ≈ **$0.55** across the two probe passes (10s and 60s timeouts).
 
+**M3.7 (orderflow) — Order-book imbalance context arm + A/B experiment** (plan pre-committed 2026-08-09, data collection in progress).
+
+The fair test of "does more context help" that FNG's daily granularity couldn't give: order-book imbalance from `/api/depth/{pair}` is free, Indodax-native, updates in real time, and the most directly tied to near-term price action of anything on the context list. Unlike patterns (computed from historical candles) and fng (had an 2018–now daily snapshot), **Indodax has no order-book history**, so this experiment is gated on *forward* data collection.
+
+**Build**:
+- `fetchDepth` on `IndodaxPublicApiClient` (public-api.ts) — `/api/depth/{lowercase-id}`, same `historyRetryPolicy` (timeout/retry/throttle), injected fetch for tests. `parseDepth` maps `buy`→`bids` (price desc), `sell`→`asks` (price asc) onto the core `OrderBook` shape; values arrive as strings live, parser coerces numbers.
+- `JsonlLoader` order-book support: reads `orderbook.jsonl` snapshots keyed by timestamp, completing the `Dataset.orderbook?(timestamp)` contract that already existed on the interface. Datasets without a snapshot file return `null` (never throw).
+- Recorder `scripts/record-depth.mjs`: samples depth at each 15m boundary aligned to exchange server time (`/api/server_time`), stamps the snapshot with the candle close timestamp, maintains `candles.jsonl` from `history_v2`, writes validated `metadata.json` (`includes.orderbook: true`). Long-running loop, resumable/idempotent, `--once`/`--no-wait`/`--finalize` modes. Snapshots are keyed to the decision candle's own close timestamp — strict per-candle causality (the probe only ever looks up the snapshot at the decision candle's ts; missing → `Orderbook: unavailable`). Collection started **2026-08-09 ~15:30 UTC**, target ≥300 matched decision points (~4–5 days) on BTC/IDR.
+- `--context=orderflow` arm in `packages/llm` (contexts.ts): `computeOrderFlow` / `buildOrderFlowBlock` — **pre-committed single metric**: top-5 bid vs ask size sums, `imbalance = (topBid − topAsk)/(topBid + topAsk)` ∈ [−1, 1], plus `spread%` and best bid/ask, versioned via a definition hash (same convention as `patternVersion`). Arm = indicators + orderflow block (mirrors patterns' control/treatment isolation). Threaded through `backtest --record` and `benchmark probe`/`run`; both CLIs accept `--context=orderflow`.
+
+**Experiment** (identical rigor to M3.6, pre-committed before running):
+1. Collect BTC/IDR 15m depth snapshots for ~4–5 days (in progress, free public endpoint, no API key).
+2. Two fresh probe passes on the same dataset slice: control `--context=indicators`, treatment `--context=orderflow`, deepseek-v4-flash (cheapest paid model, M8 pick), 3 repeats, `--timeout 60000` (fng's fix), guardrails threaded with correct `--min-volume` (BTC/IDR 0.02), ≥300 matched decision points/arm.
+3. `benchmark abtest --control … --treatment … --dataset datasets/experiments/orderflow-btc_idr-15m-2026`. Primary metric **win rate** (pre-committed). Report also: pnlDelta/maxDdDelta means + CIs, directional accuracy, McNemar p, snapshot availability rate.
+4. One pass — no re-running with tweaked metric definitions until something looks significant (that's p-hacking). Snapshot availability ≥90% of matched points required for a valid run; report it either way.
+
+**Decision rule** (pre-committed):
+- **Keep as an off-by-default configurable option** only if the win-rate delta CI excludes zero AND the improvement beats the added token cost (orderflow block adds ~60–80 tokens/call).
+- **Discard** (remove the arm and any snapshots) if no credible improvement — matching the fng precedent.
+- **Promotion** to default context would require a larger, multi-regime confirmation — an experiment alone does not promote architecture.
+
+**Status**: build + TDD complete, `pnpm check` green (71 files / 497 tests); collection running; verdict to be recorded here after the A/B.
+
 ## M4 — Validation + Guardrails + Property tests ✅
 
 **Build**: validation layer (already delivered in `packages/core` — see M1/M2), full guardrail rule set as `packages/guardrails` (a pure, deterministic module operating on mock inputs, reused by `apps/backtest` and `apps/benchmark` per ADR-011), property tests against guardrails.

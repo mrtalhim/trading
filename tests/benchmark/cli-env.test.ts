@@ -27,7 +27,7 @@ describe('envNameForPreset', () => {
 
 describe('benchmark CLI --context', () => {
   it('parses every supported context kind', () => {
-    for (const ctx of ['baseline', 'indicators', 'patterns']) {
+    for (const ctx of ['baseline', 'indicators', 'patterns', 'orderflow']) {
       const a = parseBenchmarkArgs(['probe', '--context', ctx, '--dataset', 'd', '--decisions', 'x']);
       expect(a.context).toBe(ctx);
     }
@@ -56,6 +56,11 @@ describe('backtest CLI --context', () => {
   it('parses --context for --record', () => {
     const a = parseBacktestArgs(['--record', '--context', 'patterns', '--dataset', 'd']);
     expect(a.context).toBe('patterns');
+  });
+
+  it('parses --context=orderflow for --record', () => {
+    const a = parseBacktestArgs(['--record', '--context', 'orderflow', '--dataset', 'd']);
+    expect(a.context).toBe('orderflow');
   });
 
   it('rejects an invalid --context value', () => {

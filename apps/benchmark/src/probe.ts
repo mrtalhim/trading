@@ -53,6 +53,7 @@ export async function probeDecisions(
   const opts = { ...DEFAULT_OPTIONS, ...partialOptions };
   const replay = new ReplayLoader(dataset);
   const candles = (await replay.all()).sort((a, b) => a.timestamp - b.timestamp);
+  const renderOpts = contextOptionsFor(opts.context);
 
   const results: ProbeResult[] = [];
   for (const ts of timestamps) {
@@ -62,8 +63,11 @@ export async function probeDecisions(
     }
     const lookbackStart = Math.max(0, idx - opts.lookback + 1);
     const window = candles.slice(lookbackStart, idx + 1);
+    // The orderflow block reads the book snapshot keyed to this decision
+    // candle's own close timestamp — never a later snapshot (strict causality).
+    const book = renderOpts.includeOrderflow ? ((await dataset.orderbook?.(ts)) ?? null) : null;
     const ctx = {
-      ...buildDecisionContext(opts.symbol, window, contextOptionsFor(opts.context)),
+      ...buildDecisionContext(opts.symbol, window, renderOpts, book),
       timestamp: ts,
     };
 
