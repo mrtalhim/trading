@@ -261,6 +261,7 @@ async function cmdAbtest(a: CliArgs): Promise<void> {
   const result = await forPairedBlocks(dataset, control, treatment, {
     blockSize: a.blockSize,
     symbol: a.symbol,
+    minVolume: a.minVolume !== undefined ? Number(a.minVolume) : 0,
   });
 
   const out = a.out ?? 'paired-ab.json';

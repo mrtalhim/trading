@@ -10,6 +10,7 @@ export interface BlockAnalysisOptions {
   feeRate: number;
   fraction: number;
   atrStopMultiplier: number;
+  minVolume: number;
   bootstrapSamples: number;
   seed: number;
 }
@@ -64,6 +65,7 @@ const DEFAULT_OPTIONS: BlockAnalysisOptions = {
   feeRate: 0,
   fraction: 0.1,
   atrStopMultiplier: 2,
+  minVolume: 0,
   bootstrapSamples: 1000,
   seed: 20260807,
 };
@@ -178,6 +180,7 @@ export async function forPairedBlocks(
     feeRate: opts.feeRate,
     fraction: opts.fraction,
     atrStopMultiplier: opts.atrStopMultiplier,
+    minVolume: opts.minVolume,
   };
 
   for (let block = 0; block < nBlocks; block++) {

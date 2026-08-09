@@ -119,4 +119,29 @@ describe('forPairedBlocks', () => {
     expect(r1.pnlDeltaCI95).toEqual(r2.pnlDeltaCI95);
     expect(r1.deltas).toEqual(r2.deltas);
   });
+
+  it('honours a per-dataset minVolume guardrail (rejects low-volume trades)', async () => {
+    const { dataset, candles } = upwardDataset(40);
+    const ts = candles.map((c) => c.timestamp);
+    // flips between long and short force position closes so pnl is realized
+    const control = ts.map((t, i) => probe(t, i % 2 === 0 ? 'long' : 'short'));
+    const treatment = ts.map((t, i) => probe(t, i % 2 === 0 ? 'long' : 'short'));
+
+    // volume is 1000 in the fixture; a floor of 5000 must reject every fill
+    const gated = await forPairedBlocks(dataset, control, treatment, {
+      blockSize: 40,
+      seed: 3,
+      minVolume: 5000,
+    });
+    expect(gated.deltas[0].controlPnl).toBe(0);
+    expect(gated.deltas[0].treatmentPnl).toBe(0);
+
+    // a floor of 1 leaves the same trades passable and the pnl nonzero
+    const open = await forPairedBlocks(dataset, control, treatment, {
+      blockSize: 40,
+      seed: 3,
+      minVolume: 1,
+    });
+    expect(open.deltas[0].controlPnl).not.toBe(0);
+  });
 });

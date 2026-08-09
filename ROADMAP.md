@@ -62,6 +62,23 @@ This is an experiment with a pre-decided keep/discard rule, not a permanent arch
 
 Per the pre-committed rule: no model showed a credible win-rate improvement (primary metric), so patterns are **not** made the default context; because deepseekv4 showed a credible secondary-metric (PnL) improvement and no model was harmed, the `--context=patterns` option stays available off-by-default. Real spend ≈ **$0.09** (deepseek only; nemotron free tier; gemini paid API, uncounted).
 
+**M3.6 (fng) — Fear & Greed context arm + A/B experiment** (recorded 2026-08-09).
+
+**Build**: `--context=fng` arm in `packages/llm` — appends a `Sentiment: Fear & Greed <value> (<class>) — day <UTC-date>` line to the user prompt using the **previous UTC day's** value (strict causality) from a committed daily snapshot (`packages/llm/data/fear-greed.json`, pulled by `scripts/pull-fear-greed.mjs` from the free alternative.me F&G API, coverage 2018-02-01..2026-08-09). Threaded through `backtest --record` and `benchmark probe`. Full TDD suite added (lookup causality, block rendering, context-arm wiring, CLI, record path); `pnpm check` green (72 files / 485 tests).
+
+**Experiment**: paired A/B on the combined ETH/IDR 15m dataset `datasets/experiments/fng-ethidr2026` (the four `ethidr2026` w0-w3 slices, 2026-04-26..2026-08-08, 10,020 candles), 404 matched decision points/arm, deepseekv4, 3 repeats. Reports: `apps/benchmark/ab-results/fng/paired-ab-60s.json`.
+
+Probe quality fix in the same pass: the default 10s client timeout cut ~30% of probes at exactly 10,000 ms (known M3.5 gemini failure mode, ROADMAP:61), turning them into forced holds. Re-probed both arms with `--timeout 60000` → valid-JSON rate 66.9%→**95.0%** (baseline) and 61.5%→**87.6%** (fng). Also fixed a latent harness gap: `benchmark abtest`/`scoreProbes` never passed guardrails, so the default `minVolume: 100` rejected every ETH/IDR candle (~7 volume) and produced zero trades; added `--min-volume` threading through the abtest path (tests in `tests/benchmark/paired.test.ts`).
+
+**Results** (primary metric win rate, pre-committed):
+
+- **PnL delta −66.1, CI [−149.2, −2.1]** — excludes 0 on the **harmful** side.
+- **Win-rate delta −0.171, CI [−0.410, 0.019]** — negative lean, not credible.
+- MaxDD delta +0.006, CI [−0.007, 0.027] — neutral.
+- Directional accuracy 50.3% → 48.1%; McNemar p = 0.503 (12/8 discordant) — no improvement.
+
+**Verdict (recorded 2026-08-09)**: **Discard.** The fng context arm credibly *hurts* backtested PnL (CI excludes 0 on the negative side), the primary win-rate metric leans negative, and directional accuracy does not improve. Per the pre-committed rule ("discard if no credible improvement"), the `--context=fng` arm and its snapshot are removed from the codebase; the `--min-volume` harness fix stays (it is a general correctness fix). Real spend ≈ **$0.55** across the two probe passes (10s and 60s timeouts).
+
 ## M4 — Validation + Guardrails + Property tests ✅
 
 **Build**: validation layer (already delivered in `packages/core` — see M1/M2), full guardrail rule set as `packages/guardrails` (a pure, deterministic module operating on mock inputs, reused by `apps/backtest` and `apps/benchmark` per ADR-011), property tests against guardrails.

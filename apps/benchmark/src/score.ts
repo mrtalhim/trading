@@ -8,6 +8,8 @@ export interface ScoreOptions {
   feeRate: number;
   fraction: number;
   atrStopMultiplier: number;
+  /** Volume floor guardrail; set per dataset (volume units differ by asset). */
+  minVolume: number;
 }
 
 export interface ScoreResult {
@@ -25,6 +27,7 @@ const DEFAULT_OPTIONS: ScoreOptions = {
   feeRate: 0,
   fraction: 0.1,
   atrStopMultiplier: 2,
+  minVolume: 0,
 };
 
 export function computeWinRate(trades: { realizedPnl: number }[]): number {
@@ -80,6 +83,7 @@ export async function scoreProbes(
     feeRate: opts.feeRate,
     sizing: { fraction: opts.fraction },
     atrStopMultiplier: opts.atrStopMultiplier,
+    guardrails: { minVolume: opts.minVolume },
     collectEquity: true,
   }).run();
 
