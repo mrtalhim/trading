@@ -21,5 +21,15 @@ export {
   type PairedAnalysisResult,
 } from './paired.js';
 export { runBenchmarkCli } from './cli.js';
+export {
+  mulberry32,
+  randomDirectionStream,
+  maCrossoverStream,
+  runFixedBacktest,
+  type RandomStreamOptions,
+  type MaStreamOptions,
+  type FixedBacktestConfig,
+  type FixedBacktestOutcome,
+} from './baseline.js';
 export { envNameForPreset } from './cli.js';
 export { parseArgs, parseContext } from './cli.js';
