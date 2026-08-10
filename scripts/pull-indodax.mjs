@@ -15,7 +15,9 @@
 //   --tf      timeframe in minutes (default 15)
 //   --candles target candle count (default 10020)
 //   --out     output dir override (default datasets/realistic/<name>_15m_<year>)
-//   --no-cache  force a live fetch instead of reusing the per-symbol cache
+//   --from    explicit window start, epoch seconds or ISO (e.g. 2025-09-01)
+//   --to      explicit window end, epoch seconds or ISO (default: now)
+//   --no-cache  force a live fetch instead of reusing the per-window cache
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -37,13 +39,27 @@ function parseArgs(argv) {
     }
   }
   const symbol = (args.symbol ?? 'BTCIDR').toUpperCase();
+  const to = parseTs(args.to ?? 'now');
+  const from = args.from !== undefined ? parseTs(args.from) : to - (Number(args.candles ?? 10020) + 5) * Number(args.tf ?? 15) * 60;
   return {
     symbol,
     tf: Number(args.tf ?? 15),
     candles: Number(args.candles ?? 10020),
+    from,
+    to,
     out: args.out,
     noCache: args['no-cache'] === 'true',
   };
+}
+
+/** Coerces an epoch-seconds number, an ISO string, or 'now' onto epoch seconds. */
+function parseTs(value) {
+  if (value === 'now') return Math.floor(Date.now() / 1000);
+  const n = Number(value);
+  if (Number.isFinite(n)) return Math.floor(n);
+  const ms = Date.parse(value);
+  if (Number.isFinite(ms)) return Math.floor(ms / 1000);
+  throw new Error(`cannot parse timestamp '${value}' (use epoch seconds or ISO)`);
 }
 
 function pairName(symbol) {
@@ -59,9 +75,7 @@ async function fetchBars(a, cachePath) {
       /* no cache yet */
     }
   }
-  const now = Math.floor(Date.now() / 1000);
-  const from = now - (a.candles + 5) * a.tf * 60;
-  const url = `https://indodax.com/tradingview/history_v2?from=${from}&to=${now}&symbol=${a.symbol}&tf=${a.tf}`;
+  const url = `https://indodax.com/tradingview/history_v2?from=${a.from}&to=${a.to}&symbol=${a.symbol}&tf=${a.tf}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`history_v2 failed for ${a.symbol}: ${res.status}`);
   const data = await res.json();
@@ -71,7 +85,7 @@ async function fetchBars(a, cachePath) {
 
 async function main() {
   const a = parseArgs(process.argv.slice(2));
-  const cachePath = `/tmp/opencode/history-${a.symbol.toLowerCase()}.json`;
+  const cachePath = `/tmp/opencode/history-${a.symbol.toLowerCase()}-${a.from ?? 'last'}-${a.to ?? 'now'}.json`;
   const bars = await fetchBars(a, cachePath);
 
   const candles = bars
