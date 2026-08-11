@@ -64,9 +64,29 @@ positive ⇒ buy-side pressure. No other order-book summary is used in the arm.
 - **Promotion** to default context requires a larger, multi-regime confirmation;
   an experiment alone does not promote architecture.
 
-## Collection status (as of 2026-08-10 ~03:50 UTC)
+## Selection bias — the null is decisive, a positive is only suggestive
+
+The A/B is run on recorded decisions whose **risk configuration was tuned on the
+model's own PnL** (the sweep's "best stops-on" config per slice). That tuning
+favors the model: the winning config was chosen *because* it made the model's
+calls look good. Consequences, committed before the A/B:
+
+- A **null or negative result is decisive**: if the context arm does not credibly
+  improve over control under conditions already biased in the model's favor, the
+  arm is discarded without appeal.
+- A **positive result is only suggestive**: part of any measured gain could be
+  the config-selection bias, not the context itself. A positive win-rate CI
+  therefore triggers the keep-as-configurable path at most — never promotion —
+  and requires a fresh, out-of-sample confirmation before any architectural
+  conclusion (M3.5's patterns verdict followed the same rule).
+- The A/B itself is **one pass only**: no re-running with tweaked metric
+  definitions or config choices after seeing results (that is p-hacking).
+
+## Collection status (as of 2026-08-10 ~13:30 UTC, day 2)
 
 Recorder + canary running and healthy (PIDs checked, cadence aligned to 15m
-boundaries, no duplicate/gap timestamps). 45 snapshots captured ≈ 10.75 h of a
-~4–5 day target. Expected data-complete ~2026-08-13/14; the A/B runs once
-collection + `--finalize` complete.
+boundaries). Day-2 check (2026-08-10 ~13:15 UTC): **88 snapshots**, all unique,
+zero off-grid timestamps, spanning 2026-08-09 15:30 UTC → 2026-08-10 13:15 UTC;
+594 candles. Top-5 bid depth ≈ 0.17 BTC at ~1.154B — sane magnitudes, no drift.
+Expected data-complete ~2026-08-13/14 (target ≥ 300 matched points); the A/B runs
+once collection + `--finalize` complete.
