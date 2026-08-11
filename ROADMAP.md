@@ -106,7 +106,21 @@ The fair test of "does more context help" that FNG's daily granularity couldn't 
 
 **Trade-tape aggressor imbalance (flagged, not unblocked)**: `/api/trades/{pair}` was probed 2026-08-10 — it returns only ~500 most-recent fills (~112 min window) and ignores the `since` param. Trade tape is **also live-only** (same structural limit as depth), so the trade-tape aggressor-imbalance experiment (earlier list item #2) also requires forward collection; it stays queued behind the current depth capture and would extend `record-depth.mjs` only after this collection finalizes.
 
-**M3.8 (usdidr, pre-registered 2026-08-10, probes deferred)**: USD/IDR exchange-rate context arm hypothesis. Unlike the discarded M3.6 fng arm, USD/IDR is *mechanically* tied to the IDR quote (BTC/IDR ≈ BTC/USD × USD/IDR), so separating fiat from crypto moves is a testable, pre-committed claim. Historical USD/IDR is free via frankfurter.app (ECB, verified live): `scripts/pull-usdidr.mjs` → `packages/llm/data/usdidr.json` (3144 daily rates, 2017-12-29 → 2026-08-07, forward-filled to every calendar day, strict previous-UTC-day causality). Full hypothesis, design, and discard rule pre-registered at `docs/experiments/usdidr-context.md`; probe passes deferred per session plan (win-rate primary metric, keep-as-configurable only if CI excludes zero and beats token cost).
+**M3.8 (usdidr) — USD/IDR exchange-rate context arm + A/B experiment** (recorded 2026-08-10).
+
+**Build**: `--context=usdidr` arm in `packages/llm` — appends an `Fx: USD/IDR <rate> — day <UTC-date>` line to the user prompt (indicators + fx block) using the **previous UTC day's** rate (strict causality, never same-day) from a committed daily snapshot (`packages/llm/data/usdidr.json`, pulled by `scripts/pull-usdidr.mjs` from frankfurter.app/ECB, 3144 rates, 2017-12-29 → 2026-08-07, forward-filled so weekend/holiday lookups always resolve; missing key renders `Fx: unavailable`). Threaded through `benchmark probe`/`run` (the A/B path). Full TDD suite added (lookup causality incl. weekend forward-fill, block rendering, context-arm wiring, CLI + probe threading); `pnpm check` green (71 files / 509 tests).
+
+**Experiment** (pre-registered, identical rigor to M3.6/M3.7): paired A/B on the combined ETH/IDR 15m dataset `datasets/experiments/usdidr-ethidr2026` (the four `ethidr2026` w0-w3 slices, 2026-04-26..2026-08-08, 10,020 candles), 404 matched decision points/arm, deepseekv4, 3 repeats, `--timeout 60000`, block size 100, `--min-volume 0.2`. Report: `apps/benchmark/ab-results/usdidr/paired-ab-60s.json`. Probe quality high (valid JSON 98.8% control / 99.2% treatment); total spend ≈ **$0.22**.
+
+**Results** (primary metric win rate, pre-committed):
+
+- **Win-rate delta −0.227, CI [−0.458, −0.050]** — excludes 0 on the **harmful** side.
+- **PnL delta −5.5, CI [−80.2, +46.5]** — neutral.
+- MaxDD delta +0.0003, CI [−0.0005, +0.0015] — neutral.
+- Directional accuracy 51.7% → 47.6%; McNemar p = 0.79 (8/6 discordant) — no improvement.
+- Only 118/2020 decisions changed (~6%); where the fx block changed the call, treatment lost (block 2: win rate 1.000 → 0.333).
+
+**Verdict (recorded 2026-08-10)**: **Discard.** The usdidr context credibly *hurts* the primary metric (win-rate CI excludes 0 harmfully) with no compensating gain — matching the fng (M3.6) precedent. Arm code, CLI threading, tests, the `usdidr.json` snapshot, and `pull-usdidr.mjs` are removed; the A/B report and this verdict remain. Selection-bias rule (null is decisive, positive only suggestive — config was tuned on the model's own PnL) recorded in both this entry and the experiment docs.
 
 ## M4 — Validation + Guardrails + Property tests ✅
 

@@ -1,10 +1,12 @@
 # USD/IDR context-arm experiment — pre-registered hypothesis & methodology
 
-Status: **pre-registered 2026-08-10** (M3.8-style). Probe passes **deferred** to a later
-session — this document commits the hypothesis, metric, causality rule, and
-discard rule *before* any LLM result exists. Per the FNG precedent (M3.6) the
-data snapshot and arm are cheap to build and trivially removable if the verdict
-is discard.
+Status: **recorded 2026-08-10 — DISCARD verdict**. Built the `--context=usdidr`
+arm (TDD), ran the pre-registered paired A/B (404 matched decision points/arm,
+deepseek-v4-flash, 3 repeats, `--timeout 60000`), and per the pre-committed
+discard rule removed the arm and snapshot. Report:
+`apps/benchmark/ab-results/usdidr/paired-ab-60s.json`; verdict recorded in
+ROADMAP M3.8. The hypothesis, metric, causality rule, and discard rule below
+were committed *before* any LLM result existed.
 
 ## Motivation
 
@@ -59,6 +61,34 @@ Directional prediction: win rate improves; PnL and max drawdown are secondary.
 - **Discard** (remove arm + snapshot) if no credible improvement — matching the
   fng precedent.
 - **Promotion** to default context requires a larger, multi-regime confirmation.
+
+## Result (recorded 2026-08-10)
+
+Paired A/B, control `--context=indicators` vs treatment `--context=usdidr`,
+deepseek-v4-flash, 3 repeats, `--timeout 60000`, block size 100, 404 matched
+points/arm, total probe spend ≈ **$0.22** (98.8% / 99.2% valid JSON):
+
+- **Win-rate delta −0.227, CI [−0.458, −0.050]** — primary metric **excludes 0
+  on the harmful side** (treatment credibly lowers win rate).
+- PnL delta −5.5, CI [−80.2, +46.5] — neutral.
+- MaxDD delta +0.0003, CI [−0.0005, +0.0015] — neutral.
+- Directional accuracy 51.7% → 47.6%; McNemar p = 0.79 (8/6 discordant).
+- Only 118/2020 decisions changed (~6%); where the fx block changed the call,
+  treatment lost (block 2: win rate 1.000 → 0.333).
+
+**Verdict: discard.** The usdidr context credibly *hurts* the primary metric
+with no compensating gain — matching the fng (M3.6) precedent. Arm code, CLI
+threading, tests, the `usdidr.json` snapshot, and `pull-usdidr.mjs` are removed;
+the report and this record remain.
+
+## Selection bias — the null is decisive, a positive is only suggestive
+
+The A/B re-probes recorded decisions whose risk configuration was tuned on the
+model's own PnL (the sweep's "best stops-on" config). That tuning favors the
+model, so a null/negative is decisive (discard without appeal) while a positive
+is only suggestive (at most keep-as-configurable; requires fresh out-of-sample
+confirmation before any architectural conclusion). One pass only — no re-running
+with tweaked definitions after results exist. Identical rule to M3.5/M3.7.
 
 ## Cost estimate
 
