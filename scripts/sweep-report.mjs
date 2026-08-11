@@ -57,7 +57,7 @@ async function main() {
       model,
       n: decisions.length,
       validRate: +(
-        (decisions.filter((d) => d.action !== 'hold' || d.confidence > 0).length / decisions.length)
+        (decisions.filter((d) => d.action !== 'hold').length / decisions.length)
       ).toFixed(2),
       bestNoStops,
       bestStops,

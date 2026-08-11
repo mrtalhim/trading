@@ -1,6 +1,6 @@
 # Risk/regime sweep report — BTC/IDR slices (free models)
 
-Generated 2026-08-08T13:11:44.465Z
+Generated 2026-08-10T13:09:17.717Z
 
 Grid: minConfidence {0.5..0.9} × fraction {0.1} × stops {off, on} × stopMult {1,2,3} × tpMult {2,3}
 
@@ -10,7 +10,7 @@ Metrics: realizedPnl, winRate (closing trades), trades, maxDrawdown.
 
 "Best" rows are the highest-PnL variant with at least 3 closing trades.
 
-## w0 · gemma4 (101 decisions, 96% non-hold)
+## w0 · gemma4 (101 decisions, 65% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -26,7 +26,7 @@ minConfidence effect (stops off):
 | 0.8 | 9 | 0 | -55185 |
 | 0.9 | 0 | 0 | 0 |
 
-## w0 · nemotronultra (101 decisions, 72% non-hold)
+## w0 · nemotronultra (101 decisions, 53% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ minConfidence effect (stops off):
 | 0.8 | 1 | 0 | 0 |
 | 0.9 | 0 | 0 | 0 |
 
-## w1 · gemma4 (101 decisions, 97% non-hold)
+## w1 · gemma4 (101 decisions, 71% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -58,7 +58,7 @@ minConfidence effect (stops off):
 | 0.8 | 7 | 1 | 270715 |
 | 0.9 | 0 | 0 | 0 |
 
-## w1 · nemotronultra (101 decisions, 77% non-hold)
+## w1 · nemotronultra (101 decisions, 45% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -74,7 +74,7 @@ minConfidence effect (stops off):
 | 0.8 | 0 | 0 | 0 |
 | 0.9 | 0 | 0 | 0 |
 
-## w2 · gemma4 (101 decisions, 96% non-hold)
+## w2 · gemma4 (101 decisions, 62% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -90,7 +90,7 @@ minConfidence effect (stops off):
 | 0.8 | 5 | 0 | -15760 |
 | 0.9 | 0 | 0 | 0 |
 
-## w2 · nemotronultra (101 decisions, 65% non-hold)
+## w2 · nemotronultra (101 decisions, 39% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -106,7 +106,7 @@ minConfidence effect (stops off):
 | 0.8 | 1 | 0 | 0 |
 | 0.9 | 0 | 0 | 0 |
 
-## w3 · gemma4 (101 decisions, 95% non-hold)
+## w3 · gemma4 (101 decisions, 70% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -122,7 +122,7 @@ minConfidence effect (stops off):
 | 0.8 | 5 | 0 | -25391 |
 | 0.9 | 0 | 0 | 0 |
 
-## w3 · nemotronultra (101 decisions, 76% non-hold)
+## w3 · nemotronultra (101 decisions, 47% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

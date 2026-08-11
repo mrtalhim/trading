@@ -1,6 +1,6 @@
 # Risk/regime sweep report — BTC/USDT slices (free models)
 
-Generated 2026-08-08T13:12:00.985Z
+Generated 2026-08-10T13:03:26.355Z
 
 Grid: minConfidence {0.5..0.9} × fraction {0.1} × stops {off, on} × stopMult {1,2,3} × tpMult {2,3}
 
@@ -10,7 +10,7 @@ Metrics: realizedPnl, winRate (closing trades), trades, maxDrawdown.
 
 "Best" rows are the highest-PnL variant with at least 3 closing trades.
 
-## btc_15m_2024 · gemma4 (84 decisions, 99% non-hold)
+## btc_15m_2024 · gemma4 (84 decisions, 56% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -26,7 +26,7 @@ minConfidence effect (stops off):
 | 0.8 | 11 | 0 | -254 |
 | 0.9 | 1 | 0 | 0 |
 
-## btc_15m_2024 · nemotronultra (84 decisions, 80% non-hold)
+## btc_15m_2024 · nemotronultra (84 decisions, 52% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

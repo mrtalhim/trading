@@ -1,6 +1,6 @@
 # Risk/regime sweep report — ETH/IDR slices
 
-Generated 2026-08-10T08:04:12.201Z
+Generated 2026-08-10T13:04:28.156Z
 
 Grid: minConfidence {0.5..0.9} × fraction {0.1} × stops {off, on} × stopMult {1,2,3} × tpMult {2,3}
 
@@ -10,7 +10,7 @@ Metrics: realizedPnl (IDR, on initialQuote), winRate (closing trades), trades, m
 
 "Best" rows are the highest-PnL variant with at least 3 closing trades.
 
-## w0 · deepseekv4 (101 decisions, 96% non-hold)
+## w0 · deepseekv4 (101 decisions, 71% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -26,7 +26,7 @@ minConfidence effect (stops off):
 | 0.8 | 5 | 0 | 0 |
 | 0.9 | 0 | 0 | 0 |
 
-## w1 · deepseekv4 (101 decisions, 96% non-hold)
+## w1 · deepseekv4 (101 decisions, 64% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ minConfidence effect (stops off):
 | 0.8 | 6 | 0.5 | -34700 |
 | 0.9 | 0 | 0 | 0 |
 
-## w2 · deepseekv4 (101 decisions, 94% non-hold)
+## w2 · deepseekv4 (101 decisions, 68% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -58,7 +58,7 @@ minConfidence effect (stops off):
 | 0.8 | 10 | 0.333 | 312783 |
 | 0.9 | 0 | 0 | 0 |
 
-## w3 · deepseekv4 (101 decisions, 97% non-hold)
+## w3 · deepseekv4 (101 decisions, 69% non-hold)
 
 | variant | minConf | fraction | stops | stopMult | tpMult | trades | winRate | pnl | maxDD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
