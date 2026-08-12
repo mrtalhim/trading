@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IndodaxPublicApiClient, normalizeHistorySymbol, normalizePairSymbol, parseHistoryBars, parsePairInfo, } from '../indodax/public-api.js';
+import { IndodaxPublicApiClient, normalizeHistorySymbol, normalizePairSymbol, parseDepth, parseHistoryBars, parsePairInfo, } from '../indodax/public-api.js';
 const RETRY_POLICY = {
     maxRetries: 2,
     baseDelayMs: 1,
@@ -180,6 +180,75 @@ describe('retry policy hardening (timeout, throttle)', () => {
         await client.fetchHistory({ symbol: 'BTCIDR', tf: 15, from: 1, to: 2 });
         await client.fetchHistory({ symbol: 'BTCIDR', tf: 15, from: 3, to: 4 });
         expect(Date.now() - started).toBeGreaterThanOrEqual(60);
+    });
+});
+describe('parseDepth', () => {
+    const raw = {
+        buy: [
+            ['65000000', '0.05'],
+            ['64000000', '0.10'],
+        ],
+        sell: [
+            ['66000000', '0.08'],
+            ['67000000', '0.02'],
+        ],
+    };
+    it('maps buy->bids (price desc), sell->asks (price asc), stamps the timestamp', () => {
+        const book = parseDepth(raw, 1234);
+        expect(book.timestamp).toBe(1234);
+        expect(book.bids).toEqual([
+            [65000000, 0.05],
+            [64000000, 0.1],
+        ]);
+        expect(book.asks).toEqual([
+            [66000000, 0.08],
+            [67000000, 0.02],
+        ]);
+    });
+    it('accepts numeric levels and normalizes sort order regardless of input order', () => {
+        const book = parseDepth({
+            buy: [
+                [64000000, 1],
+                [65000000, 2],
+            ],
+            sell: [
+                [67000000, 1],
+                [66000000, 2],
+            ],
+        }, 0);
+        expect(book.bids.map(([p]) => p)).toEqual([65000000, 64000000]);
+        expect(book.asks.map(([p]) => p)).toEqual([66000000, 67000000]);
+    });
+    it('throws on a non-object response or malformed levels', () => {
+        expect(() => parseDepth([], 0)).toThrow(/object/);
+        expect(() => parseDepth({ buy: 'nope', sell: [] }, 0)).toThrow(/arrays/);
+        expect(() => parseDepth({ buy: [['abc', 'def']], sell: [] }, 0)).toThrow(/non-numeric/);
+        expect(() => parseDepth({ buy: [[65000000]], sell: [] }, 0)).toThrow(/malformed/);
+    });
+});
+describe('fetchDepth', () => {
+    it('hits /api/depth/{lowercase id} and returns a parsed book', async () => {
+        const seen = [];
+        const client = clientWith(async (url) => {
+            seen.push(url);
+            return jsonResponse({
+                buy: [['65000000', '0.05']],
+                sell: [['66000000', '0.08']],
+            });
+        });
+        const book = await client.fetchDepth('BTC/IDR');
+        expect(seen[0]).toBe('https://indodax.com/api/depth/btcidr');
+        expect(book.bids[0][0]).toBe(65000000);
+        expect(book.asks[0][0]).toBe(66000000);
+    });
+    it('retries transient failures per the retry policy', async () => {
+        let calls = 0;
+        const client = clientWith(async () => {
+            calls += 1;
+            return jsonResponse({}, 500);
+        });
+        await expect(client.fetchDepth('btcidr')).rejects.toThrow(/depth/);
+        expect(calls).toBe(RETRY_POLICY.maxRetries + 1);
     });
 });
 describe('parsePairInfo', () => {

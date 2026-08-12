@@ -14,6 +14,13 @@ export declare class IndodaxExchange implements Exchange {
     constructor(api: CcxtLike, policy?: RetryPolicy, sleep?: SleepFn);
     fetchTicker(symbol: string): Promise<Ticker>;
     fetchBalance(): Promise<InternalBalance[]>;
+    /**
+     * ccxt's indodax wrapper derives the quote cost of a market buy from
+     * `amount * price` and throws if no price is supplied. The engine normally
+     * passes its reference price; when it doesn't, fall back to the live ticker
+     * so a price-less market buy never reaches the wrapper in a broken state.
+     */
+    private resolvePrice;
     createOrder(params: OrderParams): Promise<InternalOrder>;
     fetchOrder(clientOrderId: string): Promise<InternalOrder>;
     cancelOrder(clientOrderId: string): Promise<InternalOrder>;

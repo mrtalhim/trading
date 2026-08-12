@@ -1,10 +1,12 @@
 /**
  * Public (unauthenticated) Indodax endpoints: symbol search, tradingview
- * history, and pair filters (`/tradingview/search_v2`, `/tradingview/history_v2`,
- * `/api/pairs_v2`). No credentials are involved. A fetch function is injected
- * so tests never touch the network — they reuse the same `fetch` shape Node
- * 18+ and browsers provide.
+ * history, pair filters, and order book depth
+ * (`/tradingview/search_v2`, `/tradingview/history_v2`, `/api/pairs_v2`,
+ * `/api/depth/{pair}`). No credentials are involved. A fetch function is
+ * injected so tests never touch the network — they reuse the same `fetch`
+ * shape Node 18+ and browsers provide.
  */
+import type { OrderBook } from '@trading/core';
 export type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 export interface HistoryV2Bar {
     Time: number;
@@ -79,6 +81,13 @@ export declare function parseHistoryBars(raw: unknown, window?: {
     to: number;
 }): HistoryBar[];
 export declare function parsePairInfo(raw: Record<string, unknown>): PairInfo;
+/**
+ * Maps an `/api/depth/{pair}` response (`buy`/`sell` level lists, prices and
+ * quantities often as strings) onto the canonical {@link OrderBook} shape:
+ * `bids` sorted price-desc, `asks` sorted price-asc, plus the observation
+ * `timestamp` supplied by the caller (the fetch moment / candle boundary).
+ */
+export declare function parseDepth(raw: unknown, timestamp: number): OrderBook;
 export declare class PublicApiError extends Error {
     readonly context: string;
     readonly status: number;
@@ -96,5 +105,6 @@ export declare class IndodaxPublicApiClient {
     fetchHistory(req: HistoryRequest): Promise<HistoryBar[]>;
     searchSymbols(query: string): Promise<SearchSymbol[]>;
     fetchPairInfo(symbol: string): Promise<PairInfo>;
+    fetchDepth(symbol: string): Promise<OrderBook>;
 }
 //# sourceMappingURL=public-api.d.ts.map
