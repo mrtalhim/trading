@@ -5,9 +5,9 @@
   "timezone": "UTC",
   "source": "indodax-public-api",
   "start": 1777649400000,
-  "end": 1786681800000,
-  "candleCount": 10037,
-  "checksum": "80660dcfeb139fa5",
+  "end": 1786716900000,
+  "candleCount": 10076,
+  "checksum": "1fea8bea4f6394ac",
   "includes": {
     "candles": true,
     "ticker": false,
