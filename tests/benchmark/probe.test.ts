@@ -135,20 +135,42 @@ describe('probeDecisions', () => {
     expect(seen[0]).toContain('Indicators:');
   });
 
-  it('orderflow arm renders unavailable when the decision candle has no snapshot', async () => {
+  it('orderflow arm skips decision candles with no matching snapshot', async () => {
     const withBook: Dataset = { ...dataset, orderbook: async () => null };
-    const seen: string[] = [];
-    const engine = new FakeEngine('fake:model', (ctx) => {
-      seen.push(ctx.userPrompt);
-      return { action: 'hold', confidence: 0.5 };
+    const engine = new FakeEngine('fake:model', () => {
+      throw new Error('engine must not be called for a candle without a snapshot');
     });
-    await probeDecisions(withBook, engine, ts, {
+    const results = await probeDecisions(withBook, engine, ts, {
       lookback: 5,
       repeats: 1,
       requestDelayMs: 0,
       context: 'orderflow',
     });
-    expect(seen[0]).toContain('Orderbook: unavailable');
+    expect(results).toHaveLength(0);
+  });
+
+  it('orderflow arm probes only the timestamps that have a snapshot', async () => {
+    const withBook: Dataset = {
+      ...dataset,
+      orderbook: async (ts: number) =>
+        ts === candles[10].timestamp ? { bids: [[100, 1]], asks: [[101, 1]], timestamp: ts } : null,
+    };
+    const seen: string[] = [];
+    const engine = new FakeEngine('fake:model', (ctx) => {
+      seen.push(ctx.userPrompt);
+      return { action: 'hold', confidence: 0.5 };
+    });
+    const results = await probeDecisions(withBook, engine, ts, {
+      lookback: 5,
+      repeats: 1,
+      requestDelayMs: 0,
+      context: 'orderflow',
+    });
+    expect(results).toHaveLength(1);
+    expect(results[0].timestamp).toBe(candles[10].timestamp);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain('Orderbook (depth, top 5 levels):');
+    expect(seen[0]).not.toContain('Orderbook: unavailable');
   });
 
   it('never queries orderbook for non-orderflow contexts', async () => {

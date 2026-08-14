@@ -120,6 +120,22 @@ describe('forPairedBlocks', () => {
     expect(r1.deltas).toEqual(r2.deltas);
   });
 
+  it('pairs only timestamps present in both arms', async () => {
+    const { dataset, candles } = upwardDataset(40);
+    const ts = candles.map((c) => c.timestamp);
+    const control = ts.map((t) => probe(t, 'long'));
+    // treatment lacks one timestamp entirely — like an orderflow candle with
+    // no snapshot; it must not count as a matched pair
+    const treatment = ts.filter((t) => t !== ts[10]).map((t) => probe(t, 'long'));
+
+    const result = await forPairedBlocks(dataset, control, treatment, {
+      blockSize: 40,
+      seed: 1,
+    });
+    expect(result.sampleSizePerArm).toBe(39);
+    expect(result.matchedSamples).toBe(39);
+  });
+
   it('honours a per-dataset minVolume guardrail (rejects low-volume trades)', async () => {
     const { dataset, candles } = upwardDataset(40);
     const ts = candles.map((c) => c.timestamp);

@@ -153,8 +153,11 @@ async function cmdProbe(a: CliArgs): Promise<void> {
   const out = a.out ?? `probes-${a.preset}.jsonl`;
   await ensureDir(out);
   await writeFile(out, probes.map((p) => JSON.stringify(p)).join('\n') + '\n');
+  const perRepeat = Math.max(1, a.repeats);
+  const covered = probes.length / perRepeat;
+  const skipped = Math.max(0, recorded.length - covered);
   process.stdout.write(
-    `probed ${probes.length} requests (${recorded.length} contexts × ${a.repeats}) → ${out}\n`,
+    `probed ${probes.length} requests (${covered} contexts × ${a.repeats}, ${skipped} skipped for missing orderflow snapshot) → ${out}\n`,
   );
 }
 

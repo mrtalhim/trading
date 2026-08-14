@@ -56,6 +56,7 @@ export async function probeDecisions(
   const renderOpts = contextOptionsFor(opts.context);
 
   const results: ProbeResult[] = [];
+  let skipped = 0;
   for (const ts of timestamps) {
     const idx = candles.findIndex((c) => c.timestamp === ts);
     if (idx < 0) {
@@ -66,6 +67,13 @@ export async function probeDecisions(
     // The orderflow block reads the book snapshot keyed to this decision
     // candle's own close timestamp — never a later snapshot (strict causality).
     const book = renderOpts.includeOrderflow ? ((await dataset.orderbook?.(ts)) ?? null) : null;
+    // A decision candle with no matching snapshot is NOT part of the orderflow
+    // treatment: skip it rather than rendering "Orderbook: unavailable", which
+    // would silently degrade the treatment arm toward the control.
+    if (renderOpts.includeOrderflow && book === null) {
+      skipped += 1;
+      continue;
+    }
     const ctx = {
       ...buildDecisionContext(opts.symbol, window, renderOpts, book),
       timestamp: ts,
@@ -77,6 +85,11 @@ export async function probeDecisions(
         await sleep(opts.requestDelayMs);
       }
     }
+  }
+  if (skipped > 0) {
+    console.error(
+      `probeDecisions: skipped ${skipped} timestamps with no orderflow snapshot for ${opts.context} context`,
+    );
   }
   return results;
 }
