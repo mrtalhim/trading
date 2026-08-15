@@ -5,3 +5,4 @@ dist/
 datasets/realistic/
 .env
 *.env
+logs/
