@@ -1,0 +1,2 @@
+probed 996 requests (332 contexts × 3, 0 skipped for missing orderflow snapshot) → apps/benchmark/ab-results/formations/probes-control.jsonl
+control exit: 0
