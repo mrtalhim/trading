@@ -1,12 +1,14 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Candle } from '@trading/core';
+import { OrderBookSchema, type OrderBook } from '@trading/core';
 import type { Dataset, DatasetMetadata } from '../interfaces.js';
 import { DatasetMetadataSchema } from '../metadata/metadata.js';
 
 export class JsonlLoader implements Dataset {
   private dir: string;
   private _metadata: DatasetMetadata | undefined;
+  private _books: Map<number, OrderBook> | undefined;
 
   constructor(dir: string) {
     this.dir = dir;
@@ -26,6 +28,36 @@ export class JsonlLoader implements Dataset {
     for (const line of lines) {
       yield JSON.parse(line) as Candle;
     }
+  }
+
+  /**
+   * Returns the order book snapshot whose `timestamp` equals the given
+   * timestamp (decision candles are keyed to the snapshot taken at their
+   * close), or `null` when the dataset has no `orderbook.jsonl` or no
+   * snapshot for that instant.
+   */
+  async orderbook(timestamp: number): Promise<OrderBook | null> {
+    const books = await this.books();
+    return books.get(timestamp) ?? null;
+  }
+
+  private async books(): Promise<Map<number, OrderBook>> {
+    if (this._books) return this._books;
+    const map = new Map<number, OrderBook>();
+    let raw: string;
+    try {
+      raw = await readFile(join(this.dir, 'orderbook.jsonl'), 'utf-8');
+    } catch {
+      // no orderbook data in this dataset — treated as null lookups
+      this._books = map;
+      return this._books;
+    }
+    for (const line of raw.split('\n').filter((l) => l.trim() !== '')) {
+      const book = OrderBookSchema.parse(JSON.parse(line));
+      map.set(book.timestamp, book);
+    }
+    this._books = map;
+    return this._books;
   }
 }
 
