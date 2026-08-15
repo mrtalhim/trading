@@ -1,0 +1,17 @@
+{
+  "exchange": "indodax",
+  "pair": "BTC/IDR",
+  "interval": "15m",
+  "timezone": "UTC",
+  "source": "indodax-public-api",
+  "start": 1777649400000,
+  "end": 1786716900000,
+  "candleCount": 10076,
+  "checksum": "1fea8bea4f6394ac",
+  "includes": {
+    "candles": true,
+    "ticker": false,
+    "orderbook": true,
+    "trades": false
+  }
+}
