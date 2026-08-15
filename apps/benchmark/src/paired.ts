@@ -10,6 +10,7 @@ export interface BlockAnalysisOptions {
   feeRate: number;
   fraction: number;
   atrStopMultiplier: number;
+  minVolume: number;
   bootstrapSamples: number;
   seed: number;
 }
@@ -64,6 +65,7 @@ const DEFAULT_OPTIONS: BlockAnalysisOptions = {
   feeRate: 0,
   fraction: 0.1,
   atrStopMultiplier: 2,
+  minVolume: 0,
   bootstrapSamples: 1000,
   seed: 20260807,
 };
@@ -164,9 +166,12 @@ export async function forPairedBlocks(
 
   const controlByTs = new Map<number, ProbeResult>(controlProbes.map((p) => [p.timestamp, p]));
   const treatmentByTs = new Map<number, ProbeResult>(treatmentProbes.map((p) => [p.timestamp, p]));
-  const timestamps = [...new Set([...controlByTs.keys(), ...treatmentByTs.keys()])].sort(
-    (a, b) => a - b,
-  );
+  // Pair only timestamps present in BOTH arms. A probe existing in one arm but
+  // not the other (e.g. orderflow skipped a candle with no snapshot) is not a
+  // matched pair and must not inflate the sample size.
+  const timestamps = [...controlByTs.keys()]
+    .filter((ts) => treatmentByTs.has(ts))
+    .sort((a, b) => a - b);
 
   const blockSize = Math.max(1, opts.blockSize);
   const nBlocks = Math.max(1, Math.ceil(timestamps.length / blockSize));
@@ -178,6 +183,7 @@ export async function forPairedBlocks(
     feeRate: opts.feeRate,
     fraction: opts.fraction,
     atrStopMultiplier: opts.atrStopMultiplier,
+    minVolume: opts.minVolume,
   };
 
   for (let block = 0; block < nBlocks; block++) {

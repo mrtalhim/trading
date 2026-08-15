@@ -9,6 +9,7 @@ import { probeDecisions } from './probe.js';
 import { scoreProbes, type ScoreResult } from './score.js';
 import { buildLeaderboard } from './leaderboard.js';
 import { forPairedBlocks } from './paired.js';
+import { sweepConfigs } from './sweep.js';
 
 interface CliArgs {
   command: string;
@@ -34,9 +35,20 @@ interface CliArgs {
   feeRate: number;
   atrStopMultiplier: number;
   timeout: number;
+  minConfidences?: string;
+  fractions?: string;
+  stopMultipliers?: string;
+  tpMultipliers?: string;
+  minVolume?: string;
 }
 
-const CONTEXT_KINDS: ContextKind[] = ['baseline', 'indicators', 'patterns'];
+const CONTEXT_KINDS: ContextKind[] = [
+  'baseline',
+  'indicators',
+  'patterns',
+  'orderflow',
+  'formations',
+];
 
 export function parseContext(value: string): ContextKind {
   if (!CONTEXT_KINDS.includes(value as ContextKind)) {
@@ -87,6 +99,11 @@ export function parseArgs(argv: string[]): CliArgs {
     feeRate: Number(args['fee-rate'] ?? 0),
     atrStopMultiplier: Number(args['atr-stop'] ?? 2),
     timeout: Number(args.timeout ?? 10_000),
+    minConfidences: args['min-confidences'],
+    fractions: args.fractions,
+    stopMultipliers: args['stop-multipliers'],
+    tpMultipliers: args['tp-multipliers'],
+    minVolume: args['min-volume'],
   };
 }
 
@@ -142,8 +159,11 @@ async function cmdProbe(a: CliArgs): Promise<void> {
   const out = a.out ?? `probes-${a.preset}.jsonl`;
   await ensureDir(out);
   await writeFile(out, probes.map((p) => JSON.stringify(p)).join('\n') + '\n');
+  const perRepeat = Math.max(1, a.repeats);
+  const covered = probes.length / perRepeat;
+  const skipped = Math.max(0, recorded.length - covered);
   process.stdout.write(
-    `probed ${probes.length} requests (${recorded.length} contexts × ${a.repeats}) → ${out}\n`,
+    `probed ${probes.length} requests (${covered} contexts × ${a.repeats}, ${skipped} skipped for missing orderflow snapshot) → ${out}\n`,
   );
 }
 
@@ -250,6 +270,7 @@ async function cmdAbtest(a: CliArgs): Promise<void> {
   const result = await forPairedBlocks(dataset, control, treatment, {
     blockSize: a.blockSize,
     symbol: a.symbol,
+    minVolume: a.minVolume !== undefined ? Number(a.minVolume) : 0,
   });
 
   const out = a.out ?? 'paired-ab.json';
@@ -257,6 +278,39 @@ async function cmdAbtest(a: CliArgs): Promise<void> {
   await writeFile(out, JSON.stringify(result, null, 2) + '\n');
   process.stdout.write(
     `paired A/B → ${out} (${result.sampleSizePerArm} matched, CI pnl ${result.pnlDeltaCI95.join('..')})\n`,
+  );
+}
+
+async function cmdSweep(a: CliArgs): Promise<void> {
+  if (!a.dataset) throw new Error('--dataset <dir> is required');
+  if (!a.decisions) throw new Error('--decisions <file> is required');
+
+  const dataset = new JsonlLoader(a.dataset);
+  const recorded = await loadDecisions(a.decisions);
+  const toNumbers = (v?: string, def: number[] = []) =>
+    v ? v.split(',').map((s) => Number(s)) : def;
+
+  const result = await sweepConfigs(dataset, recorded, {
+    symbol: a.symbol,
+    initialQuote: a.cash,
+    feeRate: a.feeRate,
+    minVolume: a.minVolume !== undefined ? Number(a.minVolume) : 0,
+    minConfidences: toNumbers(a.minConfidences, [0.5, 0.6, 0.7, 0.8, 0.9]),
+    fractions: toNumbers(a.fractions, [0.05, 0.1, 0.2]),
+    stopMultipliers: toNumbers(a.stopMultipliers, [1, 2, 3]),
+    tpMultipliers: toNumbers(a.tpMultipliers, [2, 3]),
+  });
+
+  const out = a.out ?? 'sweep.json';
+  await ensureDir(out);
+  await writeFile(out, JSON.stringify(result, null, 2) + '\n');
+
+  const best = result.rows.reduce((acc, r) => (r.realizedPnl > acc.realizedPnl ? r : acc));
+  process.stdout.write(
+    `sweep: ${result.rows.length} variants → ${out}\n` +
+      `  best: c${best.minConfidence} f${best.fraction} ` +
+      `stops${best.enableStops ? 'on' : 'off'} s${best.atrStopMultiplier} t${best.atrTpMultiplier} ` +
+      `pnl=${best.realizedPnl.toFixed(2)} winRate=${best.winRate} trades=${best.trades}\n`,
   );
 }
 
@@ -273,9 +327,11 @@ export async function runBenchmarkCli(argv: string[] = process.argv.slice(2)): P
       return cmdRun(a);
     case 'abtest':
       return cmdAbtest(a);
+    case 'sweep':
+      return cmdSweep(a);
     default:
       throw new Error(
-        `unknown command: '${a.command}'. expected one of: probe, score, leaderboard, run, abtest`,
+        `unknown command: '${a.command}'. expected one of: probe, score, leaderboard, run, abtest, sweep`,
       );
   }
 }
