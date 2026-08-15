@@ -1,0 +1,89 @@
+{
+  "blockSize": 100,
+  "sampleSizePerArm": 332,
+  "matchedSamples": 332,
+  "deltas": [
+    {
+      "block": 0,
+      "matchedSamples": 100,
+      "controlPnl": -95.59046353660926,
+      "treatmentPnl": -15.57489601857775,
+      "pnlDelta": 80.01556751803152,
+      "controlWinRate": 0.25,
+      "treatmentWinRate": 0,
+      "winRateDelta": -0.25,
+      "controlMaxDd": 0.04404602386077213,
+      "treatmentMaxDd": 0.0524054248702454,
+      "maxDdDelta": 0.008359401009473272,
+      "changedDecisions": 35
+    },
+    {
+      "block": 1,
+      "matchedSamples": 100,
+      "controlPnl": 112.37913134818396,
+      "treatmentPnl": 304.56808322818614,
+      "pnlDelta": 192.18895188000218,
+      "controlWinRate": 0.6666666666666666,
+      "treatmentWinRate": 0.4,
+      "winRateDelta": -0.2666666666666666,
+      "controlMaxDd": 0.07984968978086042,
+      "treatmentMaxDd": 0.11267218364255782,
+      "maxDdDelta": 0.0328224938616974,
+      "changedDecisions": 45
+    },
+    {
+      "block": 2,
+      "matchedSamples": 100,
+      "controlPnl": -62.37695162245441,
+      "treatmentPnl": -24.59723154707883,
+      "pnlDelta": 37.77972007537558,
+      "controlWinRate": 0.3333333333333333,
+      "treatmentWinRate": 0,
+      "winRateDelta": -0.3333333333333333,
+      "controlMaxDd": 0.023619218017673384,
+      "treatmentMaxDd": 0.023591283032021463,
+      "maxDdDelta": -0.000027934985651921485,
+      "changedDecisions": 44
+    },
+    {
+      "block": 3,
+      "matchedSamples": 32,
+      "controlPnl": -39.45615633310214,
+      "treatmentPnl": -26.372657705096003,
+      "pnlDelta": 13.08349862800614,
+      "controlWinRate": 0,
+      "treatmentWinRate": 0,
+      "winRateDelta": 0,
+      "controlMaxDd": 0.010153005989811115,
+      "treatmentMaxDd": 0.007710116096309837,
+      "maxDdDelta": -0.0024428898935012775,
+      "changedDecisions": 12
+    }
+  ],
+  "pnlDeltaMean": 80.76693452535386,
+  "pnlDeltaCI95": [
+    25.43160935169086,
+    147.56693995104908
+  ],
+  "winRateDeltaMean": -0.21249999999999997,
+  "winRateDeltaCI95": [
+    -0.3125,
+    -0.06666666666666665
+  ],
+  "maxDdDeltaMean": 0.009677767498004369,
+  "maxDdDeltaCI95": [
+    -0.0012354124395765995,
+    0.024021241391071778
+  ],
+  "directional": {
+    "controlCorrect": 94,
+    "controlTotal": 208,
+    "treatmentCorrect": 91,
+    "treatmentTotal": 185
+  },
+  "directionalMcNemar": {
+    "treatmentWins": 3,
+    "controlWins": 2,
+    "pValueTwoSided": 1
+  }
+}
