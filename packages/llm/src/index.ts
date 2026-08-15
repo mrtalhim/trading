@@ -15,6 +15,7 @@ export {
   contextOptionsFor,
   buildOrderFlowBlock,
   computeOrderFlow,
+  buildFormationBlock,
 } from './contexts.js';
 export type { ContextRenderOptions, ContextKind, OrderFlowMetrics } from './contexts.js';
 export { BaseDecisionEngine } from './base-engine.js';

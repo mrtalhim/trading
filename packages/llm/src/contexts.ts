@@ -1,15 +1,25 @@
 import { createHash } from 'node:crypto';
 import type { Candle, OrderBook } from '@trading/core';
-import { adx, atr, detectPatternContext, ema, rsi, sma, vwap } from '@trading/indicators';
+import {
+  adx,
+  atr,
+  detectFormationContext,
+  detectPatternContext,
+  ema,
+  rsi,
+  sma,
+  vwap,
+} from '@trading/indicators';
 import type { DecisionContext } from './interfaces.js';
 
 export interface ContextRenderOptions {
   includeIndicators?: boolean;
   includePatterns?: boolean;
   includeOrderflow?: boolean;
+  includeFormations?: boolean;
 }
 
-export type ContextKind = 'baseline' | 'indicators' | 'patterns' | 'orderflow';
+export type ContextKind = 'baseline' | 'indicators' | 'patterns' | 'orderflow' | 'formations';
 
 export function contextOptionsFor(kind: ContextKind): ContextRenderOptions {
   switch (kind) {
@@ -19,6 +29,8 @@ export function contextOptionsFor(kind: ContextKind): ContextRenderOptions {
       return { includeIndicators: true, includePatterns: true };
     case 'orderflow':
       return { includeIndicators: true, includeOrderflow: true };
+    case 'formations':
+      return { includeIndicators: true, includeFormations: true };
     case 'baseline':
     default:
       return {};
@@ -49,6 +61,11 @@ export function buildDecisionSystemPrompt(symbol: string, opts: ContextRenderOpt
   if (opts.includeOrderflow) {
     lines.push(
       '- Order book imbalance is supplied; weigh it only as evidence, not as a signal on its own.',
+    );
+  }
+  if (opts.includeFormations) {
+    lines.push(
+      '- Chart formations are supplied; weigh them only as evidence, not as signals on their own.',
     );
   }
   return lines.join('\n');
@@ -89,6 +106,22 @@ export function buildPatternBlock(candles: Candle[]): string {
     `- single: ${single}`,
     `- double: ${doubly}`,
     `- triple: ${triple}`,
+  ].join('\n');
+}
+
+export function buildFormationBlock(candles: Candle[]): string {
+  const ctx = detectFormationContext(candles);
+  const neckline =
+    ctx.necklinePrice !== null && ctx.necklineSlopePct !== null
+      ? `neckline: ${fmt(ctx.necklinePrice)} (slope ${fmt(ctx.necklineSlopePct)}%)`
+      : 'neckline: n/a';
+  return [
+    'Formations:',
+    `- version: ${ctx.formationVersion}`,
+    `- pivots: ${ctx.pivots.total} (${ctx.pivots.high}H/${ctx.pivots.low}L) over ${candles.length} candles`,
+    `- headAndShoulders: ${ctx.headAndShoulders}; inverseHeadAndShoulders: ${ctx.inverseHeadAndShoulders}`,
+    `- doubleTop: ${ctx.doubleTop}; doubleBottom: ${ctx.doubleBottom}`,
+    `- ${neckline}`,
   ].join('\n');
 }
 
@@ -169,6 +202,7 @@ export function buildDecisionUserPrompt(
     '',
     ...(opts.includeIndicators ? [buildIndicatorBlock(candles), ''] : []),
     ...(opts.includePatterns ? [buildPatternBlock(candles), ''] : []),
+    ...(opts.includeFormations ? [buildFormationBlock(candles), ''] : []),
     ...(opts.includeOrderflow ? [buildOrderFlowBlock(book ?? null), ''] : []),
     'Based on this price action, what is your decision?',
     'Respond with exactly: {"action":"long"|"short"|"hold","confidence":0.0-1.0}',

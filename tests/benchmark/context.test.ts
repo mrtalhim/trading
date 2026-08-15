@@ -44,6 +44,13 @@ describe('context render options', () => {
       includeOrderflow: true,
     });
   });
+
+  it('maps formations to indicators + formations', () => {
+    expect(contextOptionsFor('formations')).toEqual({
+      includeIndicators: true,
+      includeFormations: true,
+    });
+  });
 });
 
 describe('buildDecisionUserPrompt blocks', () => {
@@ -102,6 +109,15 @@ describe('buildDecisionUserPrompt blocks', () => {
     expect(prompt).toContain('n/a');
   });
 
+  it('formations arm adds indicator and formation blocks', () => {
+    const prompt = buildDecisionUserPrompt(candles(60), contextOptionsFor('formations'));
+    expect(prompt).toContain('Indicators:');
+    expect(prompt).toContain('Formations:');
+    expect(prompt).toMatch(/pivots: \d+ \(\d+H\/\d+L\) over 60 candles/);
+    expect(prompt).toMatch(/version: [0-9a-f]{16}/);
+    expect(prompt).not.toContain('Patterns:');
+  });
+
   it('is deterministic for identical input', () => {
     const cs = candles(20);
     expect(buildDecisionUserPrompt(cs, contextOptionsFor('patterns'))).toBe(
@@ -126,6 +142,11 @@ describe('buildDecisionSystemPrompt blocks', () => {
   it('orderflow arm mentions the imbalance rule', () => {
     const p = buildDecisionSystemPrompt('BTC/USDT', contextOptionsFor('orderflow'));
     expect(p).toContain('Order book imbalance is supplied');
+  });
+
+  it('formations arm mentions the chart-formations rule', () => {
+    const p = buildDecisionSystemPrompt('BTC/USDT', contextOptionsFor('formations'));
+    expect(p).toContain('Chart formations are supplied');
   });
 });
 

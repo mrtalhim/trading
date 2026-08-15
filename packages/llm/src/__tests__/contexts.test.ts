@@ -3,6 +3,7 @@ import {
   buildDecisionSystemPrompt,
   buildDecisionUserPrompt,
   buildDecisionContext,
+  buildFormationBlock,
   buildOrderFlowBlock,
   computeOrderFlow,
   contextOptionsFor,
@@ -146,5 +147,84 @@ describe('orderflow context arm (M3.7)', () => {
   it('buildDecisionContext forwards the book to the user prompt', () => {
     const ctx = buildDecisionContext('BTC/USDT', CANDLES, contextOptionsFor('orderflow'), BOOK);
     expect(ctx.userPrompt).toContain('Orderbook (depth, top 5 levels):');
+  });
+});
+
+describe('formations context arm (M3.9)', () => {
+  const LONG = Array.from({ length: 60 }, (_, i) => ({
+    timestamp: 1700000000000 + i * 900000,
+    open: 100 + i * 0.1,
+    high: 103 + i * 0.1,
+    low: 98 + i * 0.1,
+    close: 102 + i * 0.1,
+    volume: 1000,
+  }));
+
+  it('contextOptionsFor maps formations to indicators + formations', () => {
+    expect(contextOptionsFor('formations')).toEqual({
+      includeIndicators: true,
+      includeFormations: true,
+    });
+  });
+
+  it('renders the formation block with version, pivot counts, and booleans', () => {
+    const block = buildFormationBlock(LONG);
+    expect(block).toContain('Formations:');
+    expect(block).toMatch(/version: [0-9a-f]{16}/);
+    expect(block).toMatch(/pivots: \d+ \(\d+H\/\d+L\) over 60 candles/);
+    expect(block).toContain('headAndShoulders: ');
+    expect(block).toContain('doubleTop: ');
+  });
+
+  it('renders neckline n/a when no formation fired, never crashes', () => {
+    const block = buildFormationBlock(LONG);
+    expect(block).toContain('neckline: n/a');
+  });
+
+  it('renders a real neckline when a formation fires', () => {
+    const candles = Array.from({ length: 60 }, (_, i) => {
+      let close = 100;
+      if (i <= 7) close = 100 + (20 * i) / 7;
+      else if (i <= 12) close = 120 - (15 * (i - 7)) / 5;
+      else if (i <= 20) close = 105 + (25 * (i - 12)) / 8;
+      else if (i <= 26) close = 130 - (26 * (i - 20)) / 6;
+      else if (i <= 33) close = 104 + (14 * (i - 26)) / 7;
+      else close = 118 - (19 * (i - 33)) / 5;
+      return {
+        timestamp: 1700000000000 + i * 900000,
+        open: close,
+        high: close,
+        low: close,
+        close,
+        volume: 1000,
+      };
+    });
+    const block = buildFormationBlock(candles);
+    expect(block).toMatch(/neckline: \d+(\.\d+)? \(slope -?\d+\.\d+%\)/);
+  });
+
+  it('is deterministic for identical input', () => {
+    expect(buildFormationBlock(LONG)).toBe(buildFormationBlock(LONG));
+  });
+
+  it('formations prompt includes indicators and the formation block, no patterns', () => {
+    const prompt = buildDecisionUserPrompt(LONG, contextOptionsFor('formations'));
+    expect(prompt).toContain('Indicators:');
+    expect(prompt).toContain('Formations:');
+    expect(prompt).toContain('pivots:');
+    expect(prompt).not.toContain('Patterns:');
+    expect(prompt).not.toContain('Orderbook');
+  });
+
+  it('system prompt mentions chart formations as evidence', () => {
+    expect(buildDecisionSystemPrompt('BTC/USDT', contextOptionsFor('formations'))).toContain(
+      'Chart formations are supplied',
+    );
+  });
+
+  it('buildDecisionContext forwards the formations arm to both prompts', () => {
+    const ctx = buildDecisionContext('BTC/USDT', LONG, contextOptionsFor('formations'));
+    expect(ctx.systemPrompt).toContain('Chart formations are supplied');
+    expect(ctx.userPrompt).toContain('Formations:');
   });
 });
