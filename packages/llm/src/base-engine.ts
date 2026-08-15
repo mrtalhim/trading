@@ -1,6 +1,7 @@
 import { parseDecision } from '@trading/core';
 import type { Decision } from '@trading/core';
 import type { DecisionContext, DecisionWithUsage } from './interfaces.js';
+import { estimateTokens } from './interfaces.js';
 import {
   ZERO_COST_MODEL,
   type CostModel,
@@ -88,7 +89,11 @@ export abstract class BaseDecisionEngine {
 
       const raw = this.extractContent(body);
       const decision = this.parse(raw);
-      return { decision, usage: this.extractUsage(body) };
+      const usage = this.extractUsage(body);
+      return {
+        decision,
+        usage: usage ? { ...usage, staticTokenEstimate: estimateTokens(ctx.systemPrompt) } : null,
+      };
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         throw new DecisionTimeoutError(this.provider, this.timeoutMs);

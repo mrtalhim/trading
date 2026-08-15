@@ -11,6 +11,8 @@ export interface OpenAICompatibleConfig {
   maxRetries?: number;
   initialRetryDelayMs?: number;
   costModel?: CostModel;
+  /** OpenRouter `provider` routing directive (e.g. `{ order: ["Baidu"] }` to pin a provider). */
+  provider?: { order: string[] };
 }
 
 export class OpenAICompatibleEngine extends BaseDecisionEngine {
@@ -18,6 +20,7 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly extraHeaders: Record<string, string>;
+  private readonly providerDirective: { order: string[] } | undefined;
 
   constructor(config: OpenAICompatibleConfig) {
     super({
@@ -32,6 +35,7 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
     this.apiKey = config.apiKey;
     this.model = config.model;
     this.extraHeaders = config.extraHeaders ?? {};
+    this.providerDirective = config.provider;
   }
 
   protected buildRequest(ctx: DecisionContext): {
@@ -53,6 +57,7 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
           { role: 'user', content: ctx.userPrompt },
         ],
         temperature: 0,
+        ...(this.providerDirective ? { provider: this.providerDirective } : {}),
       },
     };
   }
@@ -68,7 +73,12 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
 
   protected extractUsage(body: string): Usage | null {
     const parsed = JSON.parse(body) as {
-      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+        prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+      };
     };
     const u = parsed.usage;
     if (!u || u.prompt_tokens === undefined || u.completion_tokens === undefined) {
@@ -78,6 +88,8 @@ export class OpenAICompatibleEngine extends BaseDecisionEngine {
       promptTokens: u.prompt_tokens,
       completionTokens: u.completion_tokens,
       totalTokens: u.total_tokens ?? u.prompt_tokens + u.completion_tokens,
+      cachedTokens: u.prompt_tokens_details?.cached_tokens,
+      cacheCreationTokens: u.prompt_tokens_details?.cache_write_tokens,
     };
   }
 }

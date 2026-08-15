@@ -20,6 +20,13 @@ const EXPECTED_PRESETS: Array<[string, string, 'openai' | 'gemini', string, Cost
   ['gptoss120b', 'OpenAI GPT-OSS 120B', 'openai', 'openai/gpt-oss-120b', PAID.gptoss120b],
   ['lunapro', 'OpenAI GPT-5.6 Luna Pro', 'openai', 'openai/gpt-5.6-luna-pro', PAID.lunapro],
   ['deepseekv4', 'DeepSeek V4 Flash', 'openai', 'deepseek/deepseek-v4-flash', PAID.deepseekv4],
+  [
+    'deepseekv4baidu',
+    'DeepSeek V4 Flash (Baidu provider pin)',
+    'openai',
+    'deepseek/deepseek-v4-flash',
+    PAID.deepseekv4,
+  ],
   ['gemini36', 'Google Gemini 3.6 Flash', 'gemini', 'gemini-3.6-flash', null],
   ['gemini35lite', 'Google Gemini 3.5 Flash Lite', 'gemini', 'gemini-3.5-flash-lite', null],
   [
@@ -60,5 +67,45 @@ describe('PRESETS', () => {
 
   it('throws a clear error for an unknown preset', () => {
     expect(() => createEngineFromPreset('does-not-exist', 'test-key')).toThrow(/unknown preset/);
+  });
+});
+
+describe('provider pinning', () => {
+  const CONTEXT = {
+    systemPrompt: 'system',
+    userPrompt: 'user',
+    timestamp: 1,
+  };
+
+  function mockFetch(bodies: unknown[]): typeof fetch {
+    return (async (_url: unknown, init?: { body?: string }) => {
+      bodies.push(JSON.parse(init?.body ?? '{}'));
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: '{"action":"hold","confidence":0.5}' } }],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+  }
+
+  it('sends provider.order for a pinned preset', async () => {
+    const bodies: unknown[] = [];
+    const engine = createEngineFromPreset(
+      'deepseekv4baidu',
+      'test-key',
+      undefined,
+      mockFetch(bodies),
+    );
+    await engine.decide(CONTEXT);
+    expect(bodies[0]).toMatchObject({ provider: { order: ['Baidu'] } });
+  });
+
+  it('does not send provider for the default deepseekv4 preset', async () => {
+    const bodies: unknown[] = [];
+    const engine = createEngineFromPreset('deepseekv4', 'test-key', undefined, mockFetch(bodies));
+    await engine.decide(CONTEXT);
+    expect(bodies[0]).not.toHaveProperty('provider');
   });
 });

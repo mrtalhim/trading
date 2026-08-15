@@ -1,13 +1,25 @@
-import type { Candle } from '@trading/core';
-import { adx, atr, detectPatternContext, ema, rsi, sma, vwap } from '@trading/indicators';
+import { createHash } from 'node:crypto';
+import type { Candle, OrderBook } from '@trading/core';
+import {
+  adx,
+  atr,
+  detectFormationContext,
+  detectPatternContext,
+  ema,
+  rsi,
+  sma,
+  vwap,
+} from '@trading/indicators';
 import type { DecisionContext } from './interfaces.js';
 
 export interface ContextRenderOptions {
   includeIndicators?: boolean;
   includePatterns?: boolean;
+  includeOrderflow?: boolean;
+  includeFormations?: boolean;
 }
 
-export type ContextKind = 'baseline' | 'indicators' | 'patterns';
+export type ContextKind = 'baseline' | 'indicators' | 'patterns' | 'orderflow' | 'formations';
 
 export function contextOptionsFor(kind: ContextKind): ContextRenderOptions {
   switch (kind) {
@@ -15,6 +27,10 @@ export function contextOptionsFor(kind: ContextKind): ContextRenderOptions {
       return { includeIndicators: true };
     case 'patterns':
       return { includeIndicators: true, includePatterns: true };
+    case 'orderflow':
+      return { includeIndicators: true, includeOrderflow: true };
+    case 'formations':
+      return { includeIndicators: true, includeFormations: true };
     case 'baseline':
     default:
       return {};
@@ -40,6 +56,16 @@ export function buildDecisionSystemPrompt(symbol: string, opts: ContextRenderOpt
   if (opts.includePatterns) {
     lines.push(
       '- Candlestick patterns are supplied; weigh them only as evidence, not as signals on their own.',
+    );
+  }
+  if (opts.includeOrderflow) {
+    lines.push(
+      '- Order book imbalance is supplied; weigh it only as evidence, not as a signal on its own.',
+    );
+  }
+  if (opts.includeFormations) {
+    lines.push(
+      '- Chart formations are supplied; weigh them only as evidence, not as signals on their own.',
     );
   }
   return lines.join('\n');
@@ -83,9 +109,89 @@ export function buildPatternBlock(candles: Candle[]): string {
   ].join('\n');
 }
 
+export function buildFormationBlock(candles: Candle[]): string {
+  const ctx = detectFormationContext(candles);
+  const neckline =
+    ctx.necklinePrice !== null && ctx.necklineSlopePct !== null
+      ? `neckline: ${fmt(ctx.necklinePrice)} (slope ${fmt(ctx.necklineSlopePct)}%)`
+      : 'neckline: n/a';
+  return [
+    'Formations:',
+    `- version: ${ctx.formationVersion}`,
+    `- pivots: ${ctx.pivots.total} (${ctx.pivots.high}H/${ctx.pivots.low}L) over ${candles.length} candles`,
+    `- headAndShoulders: ${ctx.headAndShoulders}; inverseHeadAndShoulders: ${ctx.inverseHeadAndShoulders}`,
+    `- doubleTop: ${ctx.doubleTop}; doubleBottom: ${ctx.doubleBottom}`,
+    `- ${neckline}`,
+  ].join('\n');
+}
+
+export const ORDERFLOW_VERSION = '1.0.0';
+export const ORDERFLOW_LEVELS = 5;
+
+export interface OrderFlowMetrics {
+  bestBid: number;
+  bestAsk: number;
+  /** `(bestAsk - bestBid) / bestAsk * 100`, percent. */
+  spreadPct: number;
+  /** Sum of the top-{@link ORDERFLOW_LEVELS} bid sizes. */
+  topBidSize: number;
+  /** Sum of the top-{@link ORDERFLOW_LEVELS} ask sizes. */
+  topAskSize: number;
+  /** `(topBidSize - topAskSize) / (topBidSize + topAskSize)`, in [-1, 1]. */
+  imbalance: number;
+  /** 16-char hex hash over the definition; changes only when the definition changes. */
+  version: string;
+}
+
+/**
+ * Pre-committed M3.7 metric: top-N bid vs ask size imbalance plus spread.
+ * Deterministic — the same book and level count always produce the same
+ * metrics, including `version`.
+ */
+export function computeOrderFlow(book: OrderBook, levels = ORDERFLOW_LEVELS): OrderFlowMetrics {
+  const bids = [...book.bids].sort((a, b) => b[0] - a[0]).slice(0, levels);
+  const asks = [...book.asks].sort((a, b) => a[0] - b[0]).slice(0, levels);
+  const topBidSize = bids.reduce((sum, [, qty]) => sum + qty, 0);
+  const topAskSize = asks.reduce((sum, [, qty]) => sum + qty, 0);
+  const bestBid = bids[0]?.[0] ?? NaN;
+  const bestAsk = asks[0]?.[0] ?? NaN;
+  const spreadPct =
+    Number.isFinite(bestAsk) && Number.isFinite(bestBid) && bestAsk > 0
+      ? ((bestAsk - bestBid) / bestAsk) * 100
+      : NaN;
+  const total = topBidSize + topAskSize;
+  const imbalance = total > 0 ? (topBidSize - topAskSize) / total : NaN;
+  const version = createHash('sha256')
+    .update(JSON.stringify({ version: ORDERFLOW_VERSION, levels }))
+    .digest('hex')
+    .slice(0, 16);
+  return { bestBid, bestAsk, spreadPct, topBidSize, topAskSize, imbalance, version };
+}
+
+export function buildOrderFlowBlock(book: OrderBook | null | undefined): string {
+  if (!book || book.bids.length === 0 || book.asks.length === 0) {
+    return 'Orderbook: unavailable';
+  }
+  const m = computeOrderFlow(book);
+  const side =
+    m.imbalance > 0.05
+      ? 'bids outweigh asks'
+      : m.imbalance < -0.05
+        ? 'asks outweigh bids'
+        : 'balanced';
+  return [
+    'Orderbook (depth, top 5 levels):',
+    `- version: ${m.version}`,
+    `- bestBid: ${fmt(m.bestBid)}; bestAsk: ${fmt(m.bestAsk)}; spread: ${fmt(m.spreadPct)}%`,
+    `- top-5 bid size: ${m.topBidSize.toFixed(6)}; top-5 ask size: ${m.topAskSize.toFixed(6)}`,
+    `- imbalance: ${m.imbalance.toFixed(3)} (${side})`,
+  ].join('\n');
+}
+
 export function buildDecisionUserPrompt(
   candles: Candle[],
   opts: ContextRenderOptions = {},
+  book?: OrderBook | null,
 ): string {
   const lines = candles.map(
     (c) => `t=${c.timestamp} O=${c.open} H=${c.high} L=${c.low} C=${c.close} V=${c.volume}`,
@@ -96,6 +202,8 @@ export function buildDecisionUserPrompt(
     '',
     ...(opts.includeIndicators ? [buildIndicatorBlock(candles), ''] : []),
     ...(opts.includePatterns ? [buildPatternBlock(candles), ''] : []),
+    ...(opts.includeFormations ? [buildFormationBlock(candles), ''] : []),
+    ...(opts.includeOrderflow ? [buildOrderFlowBlock(book ?? null), ''] : []),
     'Based on this price action, what is your decision?',
     'Respond with exactly: {"action":"long"|"short"|"hold","confidence":0.0-1.0}',
   ];
@@ -106,9 +214,10 @@ export function buildDecisionContext(
   symbol: string,
   candles: Candle[],
   opts: ContextRenderOptions = {},
+  book?: OrderBook | null,
 ): DecisionContext {
   return {
     systemPrompt: buildDecisionSystemPrompt(symbol, opts),
-    userPrompt: buildDecisionUserPrompt(candles, opts),
+    userPrompt: buildDecisionUserPrompt(candles, opts, book),
   };
 }

@@ -13,6 +13,8 @@ export interface ProviderConfig {
   fetchImpl?: typeof fetch;
   extraHeaders?: Record<string, string>;
   costModel?: CostModel;
+  /** OpenRouter provider routing directive (e.g. `{ order: ["Baidu"] }`). */
+  provider?: { order: string[] };
 }
 
 export interface Preset {
@@ -21,6 +23,8 @@ export interface Preset {
   model: string;
   baseURL?: string;
   costModel?: CostModel;
+  /** OpenRouter provider pin (only meaningful for `kind: 'openai'` presets). */
+  providerOrder?: string[];
 }
 
 export const PRESETS: Record<string, Preset> = {
@@ -34,6 +38,12 @@ export const PRESETS: Record<string, Preset> = {
     name: 'NVIDIA Nemotron 3 Nano 30B',
     kind: 'openai',
     model: 'nvidia/nemotron-3-nano-30b-a3b:free',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  nemotronultra: {
+    name: 'NVIDIA Nemotron 3 Ultra 550B',
+    kind: 'openai',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
     baseURL: 'https://openrouter.ai/api/v1',
   },
   gptoss: {
@@ -74,6 +84,14 @@ export const PRESETS: Record<string, Preset> = {
     model: 'deepseek/deepseek-v4-flash',
     baseURL: 'https://openrouter.ai/api/v1',
     costModel: { promptPerMillionUsd: 0.0882, completionPerMillionUsd: 0.1764 },
+  },
+  deepseekv4baidu: {
+    name: 'DeepSeek V4 Flash (Baidu provider pin)',
+    kind: 'openai',
+    model: 'deepseek/deepseek-v4-flash',
+    baseURL: 'https://openrouter.ai/api/v1',
+    costModel: { promptPerMillionUsd: 0.0882, completionPerMillionUsd: 0.1764 },
+    providerOrder: ['Baidu'],
   },
   gemini36: {
     name: 'Google Gemini 3.6 Flash',
@@ -132,6 +150,7 @@ export function createEngineFromPreset(
     timeoutMs,
     fetchImpl,
     costModel: preset.costModel,
+    provider: preset.providerOrder ? { order: preset.providerOrder } : undefined,
   });
 }
 
@@ -187,5 +206,6 @@ export function createDecisionEngine(config: ProviderConfig): DecisionEngine {
     fetchImpl: config.fetchImpl,
     extraHeaders: config.extraHeaders,
     costModel: config.costModel,
+    provider: config.provider,
   });
 }

@@ -13,6 +13,12 @@ export interface DecisionUsage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  /** Tokens served from the provider's prompt cache on this call, when reported. */
+  cachedTokens?: number;
+  /** Tokens written to the provider's cache on this call, when reported. */
+  cacheCreationTokens?: number;
+  /** Estimated tokens in the stable prefix (system prompt); chars/4 proxy. */
+  staticTokenEstimate?: number;
 }
 
 export interface DecisionTrade {
@@ -83,6 +89,9 @@ export const decisionLogEntrySchema = z.object({
       promptTokens: z.number(),
       completionTokens: z.number(),
       totalTokens: z.number(),
+      cachedTokens: z.number().optional(),
+      cacheCreationTokens: z.number().optional(),
+      staticTokenEstimate: z.number().optional(),
     })
     .nullable(),
 });

@@ -1,7 +1,7 @@
 export type { DecisionContext, DecisionEngine } from './interfaces.js';
 export type { Usage, CostModel, DecisionWithUsage } from './interfaces.js';
 export type { LlmErrorKind } from './interfaces.js';
-export { ZERO_COST_MODEL, classifyLlmError } from './interfaces.js';
+export { ZERO_COST_MODEL, classifyLlmError, estimateTokens } from './interfaces.js';
 export {
   DecisionError,
   DecisionTimeoutError,
@@ -13,8 +13,11 @@ export {
   buildDecisionUserPrompt,
   buildDecisionContext,
   contextOptionsFor,
+  buildOrderFlowBlock,
+  computeOrderFlow,
+  buildFormationBlock,
 } from './contexts.js';
-export type { ContextRenderOptions, ContextKind } from './contexts.js';
+export type { ContextRenderOptions, ContextKind, OrderFlowMetrics } from './contexts.js';
 export { BaseDecisionEngine } from './base-engine.js';
 export { OpenAICompatibleEngine } from './openai-compatible.js';
 export { AnthropicEngine } from './anthropic.js';
