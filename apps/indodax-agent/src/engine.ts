@@ -511,6 +511,7 @@ class CycleRunner {
         side: order.side,
         type: 'market',
         quantity: order.quantity,
+        price: order.side === 'buy' ? price : undefined,
         clientOrderId,
       });
 
