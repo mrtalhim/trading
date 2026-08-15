@@ -6,6 +6,8 @@ export { adx } from './adx.js';
 export { vwap } from './vwap.js';
 export { pipelineVersion } from './utils.js';
 export { detectPatternContext, buildPatternVersion } from './pattern-context.js';
+export { detectSwings } from './formation-swings.js';
+export { detectFormationContext, buildFormationVersion } from './formation-context.js';
 export type {
   PatternContext,
   PatternOptions,
@@ -15,3 +17,4 @@ export type {
   DoublePatterns,
   TriplePatterns,
 } from './pattern-types.js';
+export type { FormationContext, FormationOptions, SwingPoint } from './formation-types.js';
