@@ -6,7 +6,8 @@ import { FeaturePipeline } from '@trading/features';
 import { PaperExchange, createPaperExchange } from '@trading/exchanges';
 import { evaluateGuardrails, defaultGuardrailConfig } from '@trading/guardrails';
 import type { GuardrailConfig } from '@trading/guardrails';
-import { positionSize } from '@trading/risk';
+import { positionSize, selectAdaptiveMultipliers, ADAPTIVE_STATE_WINDOW } from '@trading/risk';
+import type { AdaptiveMultiplierState } from '@trading/risk';
 import type { SizingConfig } from '@trading/risk';
 import { parseDecision } from '@trading/core';
 import type { RecordedDecision } from './decisions.js';
@@ -28,6 +29,12 @@ export interface BacktestConfig {
   enableStops?: boolean;
   /** ATR multiplier for take-profit when `enableStops` is on (default 3). */
   atrTpMultiplier?: number;
+  /**
+   * EXPERIMENTAL (default `'fixed'`): when `'adaptive'` and `enableStops` is on,
+   * stop/TP multipliers are selected per-entry from the trailing ATR percentile
+   * (`selectAdaptiveMultipliers`) instead of the fixed multipliers.
+   */
+  riskParameterMode?: 'fixed' | 'adaptive';
 }
 
 export interface TradeRecord {
@@ -66,6 +73,8 @@ export interface BacktestResult {
   trades: TradeRecord[];
   outcomes: OutcomeRecord[];
   equityCurve?: { timestamp: number; equity: number }[];
+  /** Counts of selected adaptive states (only present when `riskParameterMode` is `'adaptive'`). */
+  adaptiveStates?: Record<AdaptiveMultiplierState, number>;
   checksum: string;
 }
 
@@ -91,6 +100,8 @@ export class BacktestEngine {
   private candles: Candle[] = [];
   private atrByTimestamp = new Map<number, number>();
   private atrBaseline = 0;
+  private atrWindow: number[] = [];
+  private adaptiveStateCounts: Record<AdaptiveMultiplierState, number> | null = null;
 
   private pos = 0;
   private avgEntry = 0;
@@ -122,6 +133,10 @@ export class BacktestEngine {
       balances: { [this.config.quote]: this.config.initialQuote, [this.config.base]: 0 },
       feeRate: this.config.feeRate ?? 0,
     });
+
+    if (this.config.riskParameterMode === 'adaptive') {
+      this.adaptiveStateCounts = { expanding: 0, neutral: 0, contracting: 0 };
+    }
 
     let currentDecision = 0;
     const decisions = this.config.decisions;
@@ -214,6 +229,16 @@ export class BacktestEngine {
   private async processCandle(candle: Candle, decision: RecordedDecision | null): Promise<void> {
     const timestamp = candle.timestamp;
     const price = candle.close;
+
+    if (this.config.riskParameterMode === 'adaptive') {
+      const atrNow = this.atrByTimestamp.get(timestamp);
+      if (typeof atrNow === 'number' && atrNow > 0) {
+        this.atrWindow.push(atrNow);
+        if (this.atrWindow.length > ADAPTIVE_STATE_WINDOW) {
+          this.atrWindow.shift();
+        }
+      }
+    }
 
     if (this.config.enableStops && this.pos !== 0 && this.exitLevels) {
       await this.checkStopTp(timestamp, candle);
@@ -427,12 +452,21 @@ export class BacktestEngine {
     if (this.config.enableStops) {
       const atr = this.atrByTimestamp.get(timestamp) ?? 0;
       if (atr > 0) {
-        const stopMult = this.config.atrStopMultiplier;
-        const tpMult = this.config.atrTpMultiplier ?? 3;
-        this.exitLevels =
-          action === 'long'
-            ? { stop: openPrice - atr * stopMult, tp: openPrice + atr * tpMult }
-            : { stop: openPrice + atr * stopMult, tp: openPrice - atr * tpMult };
+        if (this.config.riskParameterMode === 'adaptive') {
+          const sel = selectAdaptiveMultipliers(this.atrWindow, atr);
+          if (this.adaptiveStateCounts) this.adaptiveStateCounts[sel.state] += 1;
+          this.exitLevels =
+            action === 'long'
+              ? { stop: openPrice - atr * sel.stopMult, tp: openPrice + atr * sel.tpMult }
+              : { stop: openPrice + atr * sel.stopMult, tp: openPrice - atr * sel.tpMult };
+        } else {
+          const stopMult = this.config.atrStopMultiplier;
+          const tpMult = this.config.atrTpMultiplier ?? 3;
+          this.exitLevels =
+            action === 'long'
+              ? { stop: openPrice - atr * stopMult, tp: openPrice + atr * tpMult }
+              : { stop: openPrice + atr * stopMult, tp: openPrice - atr * tpMult };
+        }
       } else {
         this.exitLevels = null;
       }
@@ -511,6 +545,7 @@ export class BacktestEngine {
       trades: this.trades,
       outcomes: this.outcomes,
       ...(this.config.collectEquity ? { equityCurve: this.equityCurve } : {}),
+      ...(this.adaptiveStateCounts ? { adaptiveStates: { ...this.adaptiveStateCounts } } : {}),
     };
 
     const checksum = createHash('sha256')
