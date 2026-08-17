@@ -13,14 +13,16 @@ interface Calls {
   createOrder: number;
   fetchOrder: number;
   fetchTicker: number;
+  fetchOpenOrders: number;
 }
 
 function makeProgrammableApi(handlers: {
   createOrder?: () => Promise<CcxtLikeOrder>;
   fetchOrder?: () => Promise<CcxtLikeOrder>;
   fetchTicker?: () => Promise<CcxtLikeTicker>;
+  fetchOpenOrders?: () => Promise<CcxtLikeOrder[]>;
 }): { api: CcxtLike; calls: Calls } {
-  const calls: Calls = { createOrder: 0, fetchOrder: 0, fetchTicker: 0 };
+  const calls: Calls = { createOrder: 0, fetchOrder: 0, fetchTicker: 0, fetchOpenOrders: 0 };
   const api: CcxtLike = {
     fetchTicker: async () => {
       calls.fetchTicker += 1;
@@ -38,6 +40,12 @@ function makeProgrammableApi(handlers: {
       return handlers.fetchOrder();
     },
     cancelOrder: async () => ({ clientOrderId: 'x' }),
+    fetchOpenOrders: async () => {
+      calls.fetchOpenOrders += 1;
+      if (!handlers.fetchOpenOrders) throw new Error('unexpected fetchOpenOrders');
+      return handlers.fetchOpenOrders();
+    },
+    fetchClosedOrders: async () => [],
   };
   return { api, calls };
 }
@@ -181,5 +189,74 @@ describe('IndodaxExchange retry policy', () => {
     const ticker = await ex.fetchTicker('BTC/IDR');
     expect(ticker.last).toBe(100_000_000);
     expect(calls.fetchTicker).toBe(2);
+  });
+
+  it('retries a read-path timeout (fetchTicker) with backoff then succeeds', async () => {
+    const { api, calls } = makeProgrammableApi({
+      fetchTicker: vi.fn().mockRejectedValueOnce(timeoutError()).mockResolvedValueOnce({
+        last: 100_000_000,
+        timestamp: 0,
+      }),
+    });
+    const sleep = vi.fn(async () => {});
+    const ex = new IndodaxExchange(api, defaultRetryPolicy, sleep);
+    const ticker = await ex.fetchTicker('BTC/IDR');
+    expect(ticker.last).toBe(100_000_000);
+    expect(calls.fetchTicker).toBe(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries fetchOpenOrders on timeout then succeeds', async () => {
+    const { api, calls } = makeProgrammableApi({
+      fetchOpenOrders: vi
+        .fn()
+        .mockRejectedValueOnce(timeoutError())
+        .mockResolvedValueOnce([
+          {
+            id: 'tapi-1',
+            symbol: 'BTC/IDR',
+            side: 'buy',
+            amount: 0.5,
+            status: 'open',
+            timestamp: 0,
+          },
+        ]),
+    });
+    const sleep = vi.fn(async () => {});
+    const ex = new IndodaxExchange(api, defaultRetryPolicy, sleep);
+    const orders = await ex.fetchOpenOrders('BTC/IDR');
+    expect(orders).toHaveLength(1);
+    expect(orders[0].id).toBe('tapi-1');
+    expect(orders[0].clientOrderId).toBe('tapi-1');
+    expect(calls.fetchOpenOrders).toBe(2);
+  });
+
+  it('exhausts retries on a persistent read timeout and surfaces the error', async () => {
+    const { api, calls } = makeProgrammableApi({
+      fetchTicker: vi.fn().mockRejectedValue(timeoutError()),
+    });
+    const sleep = vi.fn(async () => {});
+    const ex = new IndodaxExchange(api, defaultRetryPolicy, sleep);
+    await expect(ex.fetchTicker('BTC/IDR')).rejects.toThrow('timed out');
+    expect(calls.fetchTicker).toBe(defaultRetryPolicy.maxRetries + 1);
+  });
+
+  it('does not blind-retry a create-order timeout (recovery path owns it)', async () => {
+    const { api, calls } = makeProgrammableApi({
+      createOrder: vi.fn().mockRejectedValue(timeoutError()),
+      fetchOrder: vi.fn().mockResolvedValue(okOrder),
+    });
+    const sleep = vi.fn(async () => {});
+    const ex = new IndodaxExchange(api, defaultRetryPolicy, sleep);
+    const order = await ex.createOrder({
+      symbol: 'BTC/IDR',
+      side: 'buy',
+      type: 'market',
+      quantity: 1,
+      clientOrderId: 'retry-cid',
+    });
+    expect(order.clientOrderId).toBe('retry-cid');
+    expect(calls.createOrder).toBe(1);
+    expect(sleep).not.toHaveBeenCalled();
   });
 });

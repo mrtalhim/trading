@@ -6,6 +6,8 @@ export interface LiveIndodaxConfig {
   apiKey: string;
   secret: string;
   enableRateLimit?: boolean;
+  /** Per-request timeout for the underlying ccxt client (ms). Default 10s. */
+  timeout?: number;
 }
 
 export interface LiveIndodax {
@@ -23,6 +25,7 @@ export function createLiveIndodax(config: LiveIndodaxConfig): LiveIndodax {
     apiKey: config.apiKey,
     secret: config.secret,
     enableRateLimit: config.enableRateLimit ?? true,
+    timeout: config.timeout ?? 10_000,
   }) as CcxtLike & { fetchTime(): Promise<number> };
   return {
     exchange: createIndodaxExchange(client),

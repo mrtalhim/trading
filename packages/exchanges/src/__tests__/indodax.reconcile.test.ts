@@ -27,6 +27,7 @@ function input(partial: Partial<ReconcileInput>): ReconcileInput {
     ownerId: 'abc123',
     recordedOrders: [],
     openOrders: [],
+    closedOrders: [],
     balances: [balance('idr', 5_000_000, 5_000_000), balance('btc', 0, 0)],
     base: 'btc',
     quote: 'idr',
@@ -91,5 +92,61 @@ describe('reconcile (ownership + startup/periodic)', () => {
     const recordedIds = new Set(recorded.map((o) => o.clientOrderId));
     const everyFillKnown = result.newFills.every((f) => recordedIds.has(f.clientOrderId));
     expect(everyFillKnown).toBe(true);
+  });
+
+  it('matches live tapi orders to recorded orders by exchange id (no clientOrderId on exchange)', () => {
+    const recorded = order({ id: 'tapi-1', clientOrderId: 'AG-abc123-1', status: 'open' });
+    const liveOpen = order({
+      id: 'tapi-1',
+      clientOrderId: 'tapi-1',
+      status: 'filled',
+      filledQuantity: 1,
+    });
+    const result = reconcile(input({ recordedOrders: [recorded], openOrders: [liveOpen] }));
+    expect(result.unownedOpenOrders).toEqual([]);
+    expect(result.newFills).toEqual([liveOpen]);
+    expect(result.missingOnExchange).toEqual([]);
+    expect(result.consistent).toBe(true);
+  });
+
+  it('detects fills of instantly-closed market orders from closed order history', () => {
+    const recorded = order({ id: 'tapi-2', clientOrderId: 'AG-abc123-2', status: 'open' });
+    const liveClosed = order({
+      id: 'tapi-2',
+      clientOrderId: 'tapi-2',
+      status: 'filled',
+      filledQuantity: 0.5,
+    });
+    const result = reconcile(input({ recordedOrders: [recorded], closedOrders: [liveClosed] }));
+    expect(result.newFills).toEqual([liveClosed]);
+    expect(result.missingOnExchange).toEqual([]);
+    expect(result.consistent).toBe(true);
+  });
+
+  it('counts a fill exactly once when the order appears in both open and closed history', () => {
+    const recorded = order({ id: 'tapi-4', clientOrderId: 'AG-abc123-4', status: 'open' });
+    const liveFilled = order({
+      id: 'tapi-4',
+      clientOrderId: 'tapi-4',
+      status: 'filled',
+      filledQuantity: 1,
+    });
+    const result = reconcile(
+      input({ recordedOrders: [recorded], openOrders: [liveFilled], closedOrders: [liveFilled] }),
+    );
+    expect(result.newFills).toHaveLength(1);
+    expect(result.newFills[0].id).toBe('tapi-4');
+  });
+
+  it('flags drift only when a recorded open order is absent from both open and closed history', () => {
+    const stillOpen = order({ id: 'tapi-5', clientOrderId: 'AG-abc123-5', status: 'open' });
+    const vanished = order({ id: 'tapi-6', clientOrderId: 'AG-abc123-6', status: 'open' });
+    const liveOpen = order({ id: 'tapi-5', clientOrderId: 'tapi-5', status: 'open' });
+    const result = reconcile(
+      input({ recordedOrders: [stillOpen, vanished], openOrders: [liveOpen] }),
+    );
+    expect(result.newFills).toEqual([]);
+    expect(result.missingOnExchange).toEqual([vanished]);
+    expect(result.consistent).toBe(false);
   });
 });

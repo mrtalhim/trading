@@ -53,6 +53,8 @@ export function makeMockApi(orders: Map<string, CcxtLikeOrder> = new Map()): Ccx
       orders.set(clientOrderId, canceled);
       return canceled;
     },
+    fetchOpenOrders: async () => [],
+    fetchClosedOrders: async () => [],
   };
 }
 

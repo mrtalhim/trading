@@ -28,12 +28,19 @@ export class IndodaxExchange implements Exchange {
   ) {}
 
   async fetchTicker(symbol: string): Promise<Ticker> {
-    const raw = await executeWithRetry(() => this.api.fetchTicker(symbol), this.policy, this.sleep);
+    const raw = await executeWithRetry(
+      () => this.api.fetchTicker(symbol),
+      this.policy,
+      this.sleep,
+      { retryTimeout: true },
+    );
     return mapTicker(raw, symbol);
   }
 
   async fetchBalance(): Promise<InternalBalance[]> {
-    const raw = await executeWithRetry(() => this.api.fetchBalance(), this.policy, this.sleep);
+    const raw = await executeWithRetry(() => this.api.fetchBalance(), this.policy, this.sleep, {
+      retryTimeout: true,
+    });
     return mapBalance(raw);
   }
 
@@ -83,8 +90,41 @@ export class IndodaxExchange implements Exchange {
       () => this.api.fetchOrder('', undefined, { clientOrderId }),
       this.policy,
       this.sleep,
+      { retryTimeout: true },
     );
     return mapOrder(raw, clientOrderId);
+  }
+
+  /**
+   * Open orders from `/openOrders`. tapi orders carry no client-order-id, so
+   * each order is mapped with its exchange id as the clientOrderId fallback;
+   * ownership is established by matching that id against recorded orders (see
+   * `reconcile`). Used by startup/periodic reconciliation.
+   */
+  async fetchOpenOrders(symbol: string): Promise<InternalOrder[]> {
+    const raw = await executeWithRetry(
+      () => this.api.fetchOpenOrders(symbol),
+      this.policy,
+      this.sleep,
+      { retryTimeout: true },
+    );
+    return raw.map((o) => mapOrder(o, o.id ?? ''));
+  }
+
+  /**
+   * Closed-order history from `/orderHistory` — ccxt.indodax has no
+   * `fetchMyTrades` (trade_history), so fills are reconciled from this
+   * surface. Each order is mapped with its exchange id as the clientOrderId
+   * fallback, matching the `fetchOpenOrders` convention.
+   */
+  async fetchClosedOrders(symbol: string): Promise<InternalOrder[]> {
+    const raw = await executeWithRetry(
+      () => this.api.fetchClosedOrders(symbol),
+      this.policy,
+      this.sleep,
+      { retryTimeout: true },
+    );
+    return raw.map((o) => mapOrder(o, o.id ?? ''));
   }
 
   async cancelOrder(clientOrderId: string): Promise<InternalOrder> {

@@ -48,6 +48,8 @@ function makeApi(overrides: {
     cancelOrder: async () => {
       throw new Error('unexpected cancelOrder');
     },
+    fetchOpenOrders: async () => [],
+    fetchClosedOrders: async () => [],
   };
   return { api, calls };
 }

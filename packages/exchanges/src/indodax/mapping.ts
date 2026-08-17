@@ -62,6 +62,8 @@ export interface CcxtLike {
     symbol?: string,
     params?: Record<string, unknown>,
   ): Promise<CcxtLikeOrder>;
+  fetchOpenOrders(symbol: string): Promise<CcxtLikeOrder[]>;
+  fetchClosedOrders(symbol: string): Promise<CcxtLikeOrder[]>;
 }
 
 const STATUS_MAP: Record<string, OrderStatus> = {
@@ -188,15 +190,17 @@ function delayFor(attempt: number, policy: RetryPolicy): number {
 }
 
 /**
- * Retries on rate-limit (429) and server (5xx) errors with exponential
- * backoff. Fatal errors (401, signature) and unknown errors are not retried.
- * A post-submit timeout is surfaced to the caller (who should look the order
- * up by clientOrderId) rather than blindly retried.
+ * Retries on rate-limit (429), server (5xx), and — for idempotent reads when
+ * `retryTimeout` is set — timeout errors, with exponential backoff. Fatal
+ * errors (401, signature) and unknown errors are not retried. A submit-path
+ * timeout is surfaced to the caller (who should look the order up by
+ * clientOrderId) rather than blind-retried.
  */
 export async function executeWithRetry<T>(
   fn: () => Promise<T>,
   policy: RetryPolicy = defaultRetryPolicy,
   sleep: SleepFn = defaultSleep,
+  opts: { retryTimeout?: boolean } = {},
 ): Promise<T> {
   let attempt = 0;
   for (;;) {
@@ -210,7 +214,10 @@ export async function executeWithRetry<T>(
       if (kind === 'signature') {
         throw new CcxtFatalError((err as Error).message, 'signature');
       }
-      if (kind === 'unknown' || kind === 'timeout') {
+      if (kind === 'unknown') {
+        throw err;
+      }
+      if (kind === 'timeout' && !opts.retryTimeout) {
         throw err;
       }
       if (attempt >= policy.maxRetries) {
